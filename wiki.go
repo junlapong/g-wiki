@@ -28,6 +28,8 @@ import (
 // TODO(akavel): use pure Go git implementation, if such is available
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 
+var verbose = flag.Bool("v", false, "verbose output")
+
 func main() {
 	var (
 		addr = flag.String("http", ":8000", "local HTTP `address` to serve the wiki on")
@@ -125,6 +127,9 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(content) != 0 && len(changelog) != 0 {
 		filePath := filepath.Join(wiki.Repo, node.File)
 		bytes := []byte(content)
+		if *verbose {
+			log.Printf("(writing %d bytes to file %q)", len(bytes), filePath)
+		}
 		err := writeFile(filePath, bytes)
 		if err != nil {
 			log.Printf("Can't write to file %q, error: %v", filePath, err)
@@ -136,12 +141,18 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if reset != "" {
 		// Reset to revision
+		if *verbose {
+			log.Printf("(resetting %q to revision %s)", node.File, reset)
+		}
 		node.Revision = reset
 		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
 		node.Revision = ""
 		node.GitShow().GitLog().ToMarkdown()
 	} else {
 		// Show specific revision
+		if *verbose {
+			log.Printf("(showing %q at revision %s)", node.File, revision)
+		}
 		node.Revision = revision
 		node.GitShow().GitLog()
 		if edit == "true" || len(node.Bytes) == 0 {
@@ -207,7 +218,7 @@ func (node *node) IsHead() bool {
 
 // Add node
 func (node *node) GitAdd() *node {
-	gitCmd(exec.Command("git", "add", node.File), node.Repo)
+	gitCmd(exec.Command("git", "add", "--", node.File), node.Repo)
 	return node
 }
 
@@ -229,7 +240,7 @@ func (node *node) GitShow() *node {
 
 // Fetch node logFile
 func (node *node) GitLog() *node {
-	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, node.File), node.Repo)
+	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.Repo)
 	var err error
 	b := bufio.NewReader(bytes.NewReader(buf))
 	var bytes []byte
@@ -288,6 +299,9 @@ func (node *node) GitRevert() *node {
 // Run git command, will currently die on all errors
 func gitCmd(cmd *exec.Cmd, baseDirectory string) []byte {
 	cmd.Dir = fmt.Sprintf("%s/", baseDirectory)
+	if *verbose {
+		log.Printf("(wd: %s) %v", cmd.Dir, cmd.Args)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
