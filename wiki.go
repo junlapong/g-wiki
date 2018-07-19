@@ -22,7 +22,6 @@ import (
 
 // TODO(akavel): add usage help
 // TODO(akavel): load .md files from current working directory
-// TODO(akavel): also load static files from current working directory, if such exist (override theme's files)
 // TODO(akavel): ensure that URLs ending with .md are handled properly (redirect to non-.md URLs? but keep #anchors...)
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): (strip .md extension from paths of served files? (+) prettier URLs, more semantic; (-) .md keeps links valid offline !!!!)
@@ -80,9 +79,26 @@ type wikiHandler struct {
 }
 
 func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/favicon.ico" {
-		// TODO(akavel): allow serving static files, including favicon
+	urlPath := path.Clean(filepath.ToSlash(r.URL.Path))
+	// Don't show any files or directories with names starting with "." (especially ".git")
+	for _, segment := range strings.Split(urlPath, "/") {
+		if strings.HasPrefix(segment, ".") {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	if !strings.HasSuffix(urlPath, ".md") {
+		// If a non-.md file exists, return it, under assumption it is a static resource
+		filePath := strings.TrimLeft(urlPath, "/")
+		if serveFile(w, r, filePath) {
+			return
+		}
+	}
+	switch urlPath {
+	case "/favicon.ico":
 		return
+	case "/index.html":
+		urlPath = "/"
 	}
 
 	// Params
@@ -95,13 +111,11 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		revision  = r.FormValue("revision")
 	)
 
-	// FIXME(akavel): ensure we sanitize the path
-	path := path.Clean(filepath.ToSlash(r.URL.Path))
-	filePath := fmt.Sprintf("%s%s.md", baseDirectory, path)
+	filePath := fmt.Sprintf("%s%s.md", baseDirectory, urlPath)
 	node := &node{
-		Path:      path,
-		File:      path[1:] + ".md",
-		Dirs:      listDirectories(path),
+		Path:      urlPath,
+		File:      urlPath[1:] + ".md",
+		Dirs:      listDirectories(urlPath),
 		Revisions: parseBool(r.FormValue("revisions")),
 	}
 
@@ -135,6 +149,25 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	wiki.renderTemplate(w, "view", node)
+}
+
+func serveFile(w http.ResponseWriter, r *http.Request, path string) bool {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	if stat.IsDir() {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		log.Println("Cannot serveFile:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return true
+	}
+	defer f.Close()
+	http.ServeContent(w, r, path, stat.ModTime(), f)
+	return true
 }
 
 type node struct {
