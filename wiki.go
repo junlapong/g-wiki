@@ -19,10 +19,88 @@ import (
 	"github.com/russross/blackfriday"
 )
 
+func main() {
+	var addr = flag.String("http", ":8000", "HTTP `address` to serve the wiki on")
+	flag.Parse()
+
+	// Handlers
+	http.HandleFunc("/", wikiHandler)
+	// Static resources
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+
+	log.Printf("Starting a server on %s...", *addr)
+	log.Fatal(http.ListenAndServe(*addr, nil))
+}
+
 const (
 	baseDirectory = "files"
 	logLimit      = "5"
 )
+
+func wikiHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/favicon.ico" {
+		return
+	}
+
+	// Params
+	var (
+		content   = r.FormValue("content")
+		edit      = r.FormValue("edit")
+		changelog = r.FormValue("msg")
+		author    = r.FormValue("author")
+		reset     = r.FormValue("revert")
+		revision  = r.FormValue("revision")
+		password  = r.FormValue("password")
+	)
+
+	filePath := fmt.Sprintf("%s%s.md", baseDirectory, r.URL.Path)
+	node := &node{
+		Path:      r.URL.Path,
+		File:      r.URL.Path[1:] + ".md",
+		Dirs:      listDirectories(r.URL.Path),
+		Revisions: parseBool(r.FormValue("revisions")),
+		Password:  password,
+	}
+
+	if r.URL.Path == "/config" {
+		node.Config = true
+		if node.accessible() {
+			edit = "true"
+		} else {
+			node.Template = "templates/login.tpl"
+		}
+	}
+
+	if len(content) != 0 && len(changelog) != 0 && node.accessible() {
+		bytes := []byte(content)
+		err := writeFile(bytes, filePath)
+		if err != nil {
+			log.Printf("Can't write to file %s, error: %v", filePath, err)
+		} else {
+			// Wrote file, commit
+			node.Bytes = bytes
+			node.GitAdd().GitCommit(changelog, author).GitLog()
+			node.ToMarkdown()
+		}
+	} else if reset != "" && node.accessible() {
+		// Reset to revision
+		node.Revision = reset
+		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
+		node.Revision = ""
+		node.GitShow().GitLog().ToMarkdown()
+	} else if node.accessible() {
+		// Show specific revision
+		node.Revision = revision
+		node.GitShow().GitLog()
+		if edit == "true" || len(node.Bytes) == 0 {
+			node.Content = string(node.Bytes)
+			node.Template = "templates/edit.tpl"
+		} else {
+			node.ToMarkdown()
+		}
+	}
+	renderTemplate(w, node)
+}
 
 type node struct {
 	Path     string
@@ -75,16 +153,15 @@ func (node *node) GitCommit(msg string, author string) *node {
 
 // Fetch node revision
 func (node *node) GitShow() *node {
-	buf := gitCmd(exec.Command("git", "show", node.Revision+":"+node.File))
-	node.Bytes = buf.Bytes()
+	node.Bytes = gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File))
 	return node
 }
 
 // Fetch node logFile
 func (node *node) GitLog() *node {
-	buf := gitCmd(exec.Command("git", "logFile", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, node.File))
+	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, node.File))
 	var err error
-	b := bufio.NewReader(buf)
+	b := bufio.NewReader(bytes.NewReader(buf))
 	var bytes []byte
 	node.logFile = make([]*logFile, 0)
 	for err == nil {
@@ -139,16 +216,18 @@ func (node *node) GitRevert() *node {
 }
 
 // Run git command, will currently die on all errors
-func gitCmd(cmd *exec.Cmd) *bytes.Buffer {
+func gitCmd(cmd *exec.Cmd) []byte {
 	cmd.Dir = fmt.Sprintf("%s/", baseDirectory)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	runError := cmd.Run()
-	if runError != nil {
-		fmt.Printf("Error: (%s) command failed with:\n\"%s\n\"", runError, out.String())
-		return bytes.NewBuffer([]byte{})
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("Error: (%s) command %v failed with:\n%s",
+			err, cmd.Args, strings.Join([]string{stdout.String(), stderr.String()}, "\n"))
+		return nil
 	}
-	return &out
+	return stdout.Bytes()
 }
 
 // ToMarkdown Process node contents
@@ -157,11 +236,11 @@ func (node *node) ToMarkdown() {
 }
 
 func (node *node) accessible() bool {
-	return (!node.Config || node.Password == "test")
+	// TODO(akavel): WTF? rename to .public() and delete the "test" check?
+	return !node.Config || node.Password == "test"
 }
 
-// ParseBool given a string, convert to bolean
-func ParseBool(value string) bool {
+func parseBool(value string) bool {
 	boolValue, err := strconv.ParseBool(value)
 	if err != nil {
 		return false
@@ -169,75 +248,16 @@ func ParseBool(value string) bool {
 	return boolValue
 }
 
-func wikiHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/favicon.ico" {
-		return
-	}
-
-	// Params
-	content := r.FormValue("content")
-	edit := r.FormValue("edit")
-	changelog := r.FormValue("msg")
-	author := r.FormValue("author")
-	reset := r.FormValue("revert")
-	revision := r.FormValue("revision")
-	password := r.FormValue("password")
-
-	filePath := fmt.Sprintf("%s%s.md", baseDirectory, r.URL.Path)
-	node := &node{File: r.URL.Path[1:] + ".md", Path: r.URL.Path, Password: password}
-	node.Revisions = ParseBool(r.FormValue("revisions"))
-
-	node.Dirs = listDirectories(r.URL.Path)
-	if r.URL.Path == "/config" {
-		node.Config = true
-		if node.accessible() {
-			edit = "true"
-		} else {
-			node.Template = "templates/login.tpl"
-		}
-	}
-
-	if len(content) != 0 && len(changelog) != 0 && node.accessible() {
-		bytes := []byte(content)
-
-		if err := writeFile(bytes, filePath); err != nil {
-			log.Printf("Cant write to file %s, error: %v", filePath, err)
-		} else {
-			// Wrote file, commit
-			node.Bytes = bytes
-			node.GitAdd().GitCommit(changelog, author).GitLog()
-			node.ToMarkdown()
-		}
-	} else if reset != "" && node.accessible() {
-		// Reset to revision
-		node.Revision = reset
-		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
-		node.Revision = ""
-		node.GitShow().GitLog().ToMarkdown()
-	} else if node.accessible() {
-		// Show specific revision
-		node.Revision = revision
-		node.GitShow().GitLog()
-		if edit == "true" || len(node.Bytes) == 0 {
-			node.Content = string(node.Bytes)
-			node.Template = "templates/edit.tpl"
-		} else {
-			node.ToMarkdown()
-		}
-	}
-	renderTemplate(w, node)
-}
-
 func writeFile(bytes []byte, entry string) error {
-	err := os.MkdirAll(path.Dir(entry), 0777)
-	if err == nil {
-		return ioutil.WriteFile(entry, bytes, 0644)
+	// FIXME(akavel): make sure to sanitize the 'entry' path
+	err := os.MkdirAll(path.Dir(entry), 0755)
+	if err != nil {
+		return err
 	}
-	return err
+	return ioutil.WriteFile(entry, bytes, 0644)
 }
 
 func renderTemplate(w http.ResponseWriter, node *node) {
-
 	t := template.New("wiki")
 	var err error
 
@@ -247,21 +267,20 @@ func renderTemplate(w http.ResponseWriter, node *node) {
 			log.Print("Could not parse template", err)
 		}
 	} else if node.Markdown != "" {
-		tpl := "{{ template \"header\" . }}"
+		tpl := `{{ template "header" . }}`
 		if node.isHead() {
-			tpl += "{{ template \"actions\" .}}"
+			tpl += `{{ template "actions" .}}`
 		} else if node.Revision != "" {
-			tpl += "{{ template \"revision\" . }}"
+			tpl += `{{ template "revision" . }}`
 		}
 		// Add node
-		tpl += "{{ template \"node\" . }}"
+		tpl += `{{ template "node" . }}`
 		// Show revisions
 		if node.Revisions {
-			tpl += "{{ template \"revisions\" . }}"
+			tpl += `{{ template "revisions" . }}`
 		}
-
 		// Footer
-		tpl += "{{ template \"footer\" . }}"
+		tpl += `{{ template "footer" . }}`
 		t.Parse(tpl)
 	}
 
@@ -272,25 +291,5 @@ func renderTemplate(w http.ResponseWriter, node *node) {
 	err = t.Execute(w, node)
 	if err != nil {
 		log.Print("Could not execute template: ", err)
-	}
-}
-
-func main() {
-	// Handlers
-	http.HandleFunc("/", wikiHandler)
-
-	// Static resources
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
-
-	var local = flag.String("local", "", "serve as webserver, example: 0.0.0.0:8000")
-
-	flag.Parse()
-	var err error
-
-	if *local != "" {
-		err = http.ListenAndServe(*local, nil)
-	}
-	if err != nil {
-		panic("ListenAndServe: " + err.Error())
 	}
 }
