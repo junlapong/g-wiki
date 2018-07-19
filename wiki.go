@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,23 +22,52 @@ import (
 
 // TODO(akavel): add usage help
 // TODO(akavel): load .md files from current working directory
-// TODO(akavel): load templates & static files from directory specified by flag --theme
 // TODO(akavel): also load static files from current working directory, if such exist (override theme's files)
+// TODO(akavel): ensure that URLs ending with .md are handled properly (redirect to non-.md URLs? but keep #anchors...)
+// TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): (strip .md extension from paths of served files? (+) prettier URLs, more semantic; (-) .md keeps links valid offline !!!!)
 // TODO(akavel): use pure Go git implementation, if such is available
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 
 func main() {
-	var addr = flag.String("http", ":8000", "HTTP `address` to serve the wiki on")
+	var (
+		addr = flag.String("http", ":8000", "local HTTP `address` to serve the wiki on")
+		// theme = flag.String("theme", "./theme/_*.html", "shell (`glob`) pattern for layout templates; "+
+		theme = flag.String("theme", "./theme/*.tpl", "shell (`glob`) pattern for layout templates "+
+			"(must define 'edit' and 'view', see ParseGlob on https://golang.org/pkg/html/template); "+
+			"rest of files in the directory tree are served as static assets at /theme/ path")
+	)
 	flag.Parse()
 
-	// Handlers
-	http.HandleFunc("/", wikiHandler)
-	// Static resources
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+	// Static resources from the theme
+	// TODO(akavel): test if this works for static files + for filtering out template files...
+	http.Handle("/theme/", http.StripPrefix("/theme/", HttpRejectGlob(filepath.Base(*theme), http.FileServer(http.Dir(filepath.Dir(*theme))))))
+
+	// Main wiki handler
+	http.Handle("/", &wikiHandler{
+		TemplateGlob: *theme,
+		// // TODO(akavel): allow dynamic editing, don't cache templates in memory
+		// Template: template.Must(template.New("").ParseGlob(*theme)),
+	})
 
 	log.Printf("Starting a server on %s...", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))
+}
+
+func HttpRejectGlob(glob string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Clean(strings.TrimLeft(r.URL.Path, "/"))
+		match, err := filepath.Match(glob, path)
+		if err != nil {
+			log.Println(err)
+			match = true
+		}
+		if match {
+			http.NotFound(w, r)
+		} else {
+			h.ServeHTTP(w, r)
+		}
+	})
 }
 
 const (
@@ -45,8 +75,13 @@ const (
 	logLimit      = "5"
 )
 
-func wikiHandler(w http.ResponseWriter, r *http.Request) {
+type wikiHandler struct {
+	TemplateGlob string
+}
+
+func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.ico" {
+		// TODO(akavel): allow serving static files, including favicon
 		return
 	}
 
@@ -60,6 +95,7 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		revision  = r.FormValue("revision")
 	)
 
+	// FIXME(akavel): ensure we sanitize the path
 	filePath := fmt.Sprintf("%s%s.md", baseDirectory, r.URL.Path)
 	node := &node{
 		Path:      r.URL.Path,
@@ -91,19 +127,19 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		node.GitShow().GitLog()
 		if edit == "true" || len(node.Bytes) == 0 {
 			node.Content = string(node.Bytes)
-			node.Template = "templates/edit.tpl"
+			wiki.renderTemplate(w, "edit", node)
+			return
 		} else {
 			node.ToMarkdown()
 		}
 	}
-	renderTemplate(w, node)
+	wiki.renderTemplate(w, "view", node)
 }
 
 type node struct {
 	Path     string
 	File     string
 	Content  string
-	Template string
 	Revision string
 	Bytes    []byte
 	Dirs     []*directory
@@ -247,37 +283,17 @@ func writeFile(bytes []byte, entry string) error {
 	return ioutil.WriteFile(entry, bytes, 0644)
 }
 
-func renderTemplate(w http.ResponseWriter, node *node) {
-	t := template.New("wiki")
-	var err error
-
-	if node.Template != "" {
-		t, err = template.ParseFiles(node.Template)
-		if err != nil {
-			log.Print("Could not parse template", err)
-		}
-	} else if node.Markdown != "" {
-		t.Parse(`
-{{- template "header" . -}}
-{{- if .IsHead -}}
-	{{- template "actions" . -}}
-{{- else if .Revision -}}
-	{{- template "revision" . -}}
-{{- end -}}
-{{- template "node" . -}}
-{{- if .Revisions -}}
-	{{- template "revisions" . -}}
-{{- end -}}
-{{- template "footer" . -}}
-`)
-	}
-
-	// Include the rest
-	t.ParseFiles("templates/header.tpl", "templates/footer.tpl",
-		"templates/actions.tpl", "templates/revision.tpl",
-		"templates/revisions.tpl", "templates/node.tpl")
-	err = t.Execute(w, node)
+func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, name string, node *node) {
+	t, err := template.New("wiki").ParseGlob(wiki.TemplateGlob)
 	if err != nil {
-		log.Print("Could not execute template: ", err)
+		log.Print("Could not parse template:", err)
+		// TODO(akavel): at least print a fallback simple HTML of the node for viewing
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = t.ExecuteTemplate(w, name, node)
+	if err != nil {
+		log.Printf("Could not execute template %q for node %q: %s", name, node.Path, err)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
