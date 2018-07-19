@@ -19,6 +19,14 @@ import (
 	"github.com/russross/blackfriday"
 )
 
+// TODO(akavel): add usage help
+// TODO(akavel): load .md files from current working directory
+// TODO(akavel): load templates & static files from directory specified by flag --theme
+// TODO(akavel): also load static files from current working directory, if such exist (override theme's files)
+// TODO(akavel): (strip .md extension from paths of served files? (+) prettier URLs, more semantic; (-) .md keeps links valid offline !!!!)
+// TODO(akavel): use pure Go git implementation, if such is available
+// TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
+
 func main() {
 	var addr = flag.String("http", ":8000", "HTTP `address` to serve the wiki on")
 	flag.Parse()
