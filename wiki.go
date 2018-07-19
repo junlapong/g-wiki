@@ -31,6 +31,8 @@ import (
 func main() {
 	var (
 		addr = flag.String("http", ":8000", "local HTTP `address` to serve the wiki on")
+		// repo  = flag.String("wiki", ".", "`directory` with git repository containing wiki files")
+		repo = flag.String("wiki", "./files", "`directory` with git repository containing wiki files")
 		// theme = flag.String("theme", "./theme/_*.html", "shell (`glob`) pattern for layout templates; "+
 		theme = flag.String("theme", "./theme/*.tpl", "shell (`glob`) pattern for layout templates "+
 			"(must define 'edit' and 'view', see ParseGlob on https://golang.org/pkg/html/template); "+
@@ -44,6 +46,7 @@ func main() {
 
 	// Main wiki handler
 	http.Handle("/", &wikiHandler{
+		Repo:         *repo,
 		TemplateGlob: *theme,
 		// // TODO(akavel): allow dynamic editing, don't cache templates in memory
 		// Template: template.Must(template.New("").ParseGlob(*theme)),
@@ -70,11 +73,11 @@ func HttpRejectGlob(glob string, h http.Handler) http.Handler {
 }
 
 const (
-	baseDirectory = "files"
-	logLimit      = "5"
+	logLimit = "5"
 )
 
 type wikiHandler struct {
+	Repo         string
 	TemplateGlob string
 }
 
@@ -87,8 +90,8 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// If a requested non-.md file exists on disk, return it, under assumption that it is a static resource
 	if !strings.HasSuffix(urlPath, ".md") {
-		// If a non-.md file exists, return it, under assumption it is a static resource
 		filePath := strings.TrimLeft(urlPath, "/")
 		if serveFile(w, r, filePath) {
 			return
@@ -111,19 +114,20 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		revision  = r.FormValue("revision")
 	)
 
-	filePath := fmt.Sprintf("%s%s.md", baseDirectory, urlPath)
 	node := &node{
 		Path:      urlPath,
-		File:      urlPath[1:] + ".md",
+		File:      strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
 		Dirs:      listDirectories(urlPath),
 		Revisions: parseBool(r.FormValue("revisions")),
+		Repo:      wiki.Repo,
 	}
 
 	if len(content) != 0 && len(changelog) != 0 {
+		filePath := filepath.Join(wiki.Repo, node.File)
 		bytes := []byte(content)
-		err := writeFile(bytes, filePath)
+		err := writeFile(filePath, bytes)
 		if err != nil {
-			log.Printf("Can't write to file %s, error: %v", filePath, err)
+			log.Printf("Can't write to file %q, error: %v", filePath, err)
 		} else {
 			// Wrote file, commit
 			node.Bytes = bytes
@@ -181,6 +185,7 @@ type node struct {
 	Markdown template.HTML
 
 	Revisions bool // Show revisions
+	Repo      string
 }
 
 type directory struct {
@@ -202,29 +207,29 @@ func (node *node) IsHead() bool {
 
 // Add node
 func (node *node) GitAdd() *node {
-	gitCmd(exec.Command("git", "add", node.File))
+	gitCmd(exec.Command("git", "add", node.File), node.Repo)
 	return node
 }
 
 // Commit node message
 func (node *node) GitCommit(msg string, author string) *node {
 	if author != "" {
-		gitCmd(exec.Command("git", "commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author)))
+		gitCmd(exec.Command("git", "commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author)), node.Repo)
 	} else {
-		gitCmd(exec.Command("git", "commit", "-m", msg))
+		gitCmd(exec.Command("git", "commit", "-m", msg), node.Repo)
 	}
 	return node
 }
 
 // Fetch node revision
 func (node *node) GitShow() *node {
-	node.Bytes = gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File))
+	node.Bytes = gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.Repo)
 	return node
 }
 
 // Fetch node logFile
 func (node *node) GitLog() *node {
-	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, node.File))
+	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, node.File), node.Repo)
 	var err error
 	b := bufio.NewReader(bytes.NewReader(buf))
 	var bytes []byte
@@ -276,12 +281,12 @@ func listDirectories(path string) []*directory {
 // Soft reset to specific revision
 func (node *node) GitRevert() *node {
 	log.Printf("Reverts %s to revision %s", node.File, node.Revision)
-	gitCmd(exec.Command("git", "checkout", node.Revision, "--", node.File))
+	gitCmd(exec.Command("git", "checkout", node.Revision, "--", node.File), node.Repo)
 	return node
 }
 
 // Run git command, will currently die on all errors
-func gitCmd(cmd *exec.Cmd) []byte {
+func gitCmd(cmd *exec.Cmd, baseDirectory string) []byte {
 	cmd.Dir = fmt.Sprintf("%s/", baseDirectory)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -308,7 +313,7 @@ func parseBool(value string) bool {
 	return boolValue
 }
 
-func writeFile(bytes []byte, entry string) error {
+func writeFile(entry string, bytes []byte) error {
 	// FIXME(akavel): make sure to sanitize the 'entry' path
 	err := os.MkdirAll(path.Dir(entry), 0755)
 	if err != nil {
