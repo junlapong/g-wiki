@@ -131,7 +131,7 @@ type logFile struct {
 	Link    bool
 }
 
-func (node *node) isHead() bool {
+func (node *node) IsHead() bool {
 	return len(node.logFile) > 0 && node.Revision == node.logFile[0].Hash
 }
 
@@ -267,21 +267,19 @@ func renderTemplate(w http.ResponseWriter, node *node) {
 			log.Print("Could not parse template", err)
 		}
 	} else if node.Markdown != "" {
-		tpl := `{{ template "header" . }}`
-		if node.isHead() {
-			tpl += `{{ template "actions" .}}`
-		} else if node.Revision != "" {
-			tpl += `{{ template "revision" . }}`
-		}
-		// Add node
-		tpl += `{{ template "node" . }}`
-		// Show revisions
-		if node.Revisions {
-			tpl += `{{ template "revisions" . }}`
-		}
-		// Footer
-		tpl += `{{ template "footer" . }}`
-		t.Parse(tpl)
+		t.Parse(`
+{{- template "header" . -}}
+{{- if .IsHead -}}
+	{{- template "actions" . -}}
+{{- else if .Revision -}}
+	{{- template "revision" . -}}
+{{- end -}}
+{{- template "node" . -}}
+{{- if .Revisions -}}
+	{{- template "revisions" . -}}
+{{- end -}}
+{{- template "footer" . -}}
+`)
 	}
 
 	// Include the rest
