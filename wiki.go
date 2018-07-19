@@ -58,7 +58,6 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		author    = r.FormValue("author")
 		reset     = r.FormValue("revert")
 		revision  = r.FormValue("revision")
-		password  = r.FormValue("password")
 	)
 
 	filePath := fmt.Sprintf("%s%s.md", baseDirectory, r.URL.Path)
@@ -67,19 +66,9 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		File:      r.URL.Path[1:] + ".md",
 		Dirs:      listDirectories(r.URL.Path),
 		Revisions: parseBool(r.FormValue("revisions")),
-		Password:  password,
 	}
 
-	if r.URL.Path == "/config" {
-		node.Config = true
-		if node.accessible() {
-			edit = "true"
-		} else {
-			node.Template = "templates/login.tpl"
-		}
-	}
-
-	if len(content) != 0 && len(changelog) != 0 && node.accessible() {
+	if len(content) != 0 && len(changelog) != 0 {
 		bytes := []byte(content)
 		err := writeFile(bytes, filePath)
 		if err != nil {
@@ -90,13 +79,13 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 			node.GitAdd().GitCommit(changelog, author).GitLog()
 			node.ToMarkdown()
 		}
-	} else if reset != "" && node.accessible() {
+	} else if reset != "" {
 		// Reset to revision
 		node.Revision = reset
 		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
 		node.Revision = ""
 		node.GitShow().GitLog().ToMarkdown()
-	} else if node.accessible() {
+	} else {
 		// Show specific revision
 		node.Revision = revision
 		node.GitShow().GitLog()
@@ -122,8 +111,6 @@ type node struct {
 	Markdown template.HTML
 
 	Revisions bool // Show revisions
-	Config    bool // Whether this is a config node
-	Password  string
 }
 
 type directory struct {
@@ -241,11 +228,6 @@ func gitCmd(cmd *exec.Cmd) []byte {
 // ToMarkdown Process node contents
 func (node *node) ToMarkdown() {
 	node.Markdown = template.HTML(string(blackfriday.MarkdownCommon(node.Bytes)))
-}
-
-func (node *node) accessible() bool {
-	// TODO(akavel): WTF? rename to .public() and delete the "test" check?
-	return !node.Config || node.Password == "test"
 }
 
 func parseBool(value string) bool {
