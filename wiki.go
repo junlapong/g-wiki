@@ -24,6 +24,7 @@ import (
 // TODO(akavel): load .md files from current working directory
 // TODO(akavel): ensure that URLs ending with .md are handled properly (redirect to non-.md URLs? but keep #anchors...)
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
+// TODO(akavel): allow deleting files from repo
 // TODO(akavel): (strip .md extension from paths of served files? (+) prettier URLs, more semantic; (-) .md keeps links valid offline !!!!)
 // TODO(akavel): use pure Go git implementation, if such is available
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
@@ -124,9 +125,12 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Repo:      wiki.Repo,
 	}
 
-	if len(content) != 0 && len(changelog) != 0 {
+	if len(content) != 0 {
+		if len(changelog) == 0 {
+			changelog = "Update " + node.File
+		}
 		filePath := filepath.Join(wiki.Repo, node.File)
-		bytes := []byte(content)
+		bytes := normalize([]byte(content))
 		if *verbose {
 			log.Printf("(writing %d bytes to file %q)", len(bytes), filePath)
 		}
@@ -183,6 +187,14 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) bool {
 	defer f.Close()
 	http.ServeContent(w, r, path, stat.ModTime(), f)
 	return true
+}
+
+func normalize(buf []byte) []byte {
+	// convert Windows CR-LFs to Unix LFs
+	buf = bytes.Replace(buf, []byte("\r\n"), []byte("\n"), -1)
+	// make sure there are no remaining CRs
+	buf = bytes.Replace(buf, []byte("\r"), []byte("\n"), -1)
+	return buf
 }
 
 type node struct {
