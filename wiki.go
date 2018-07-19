@@ -96,11 +96,12 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// FIXME(akavel): ensure we sanitize the path
-	filePath := fmt.Sprintf("%s%s.md", baseDirectory, r.URL.Path)
+	path := path.Clean(filepath.ToSlash(r.URL.Path))
+	filePath := fmt.Sprintf("%s%s.md", baseDirectory, path)
 	node := &node{
-		Path:      r.URL.Path,
-		File:      r.URL.Path[1:] + ".md",
-		Dirs:      listDirectories(r.URL.Path),
+		Path:      path,
+		File:      path[1:] + ".md",
+		Dirs:      listDirectories(path),
 		Revisions: parseBool(r.FormValue("revisions")),
 	}
 
