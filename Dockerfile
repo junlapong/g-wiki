@@ -1,9 +1,9 @@
-FROM golang:latest 
+FROM golang:latest
 RUN apt-get install git
 
-RUN mkdir /app 
-ADD . /app/ 
-WORKDIR /app 
+RUN mkdir /app
+ADD . /app/
+WORKDIR /app
 
 RUN mkdir -p files
 RUN git init files
@@ -14,8 +14,8 @@ RUN git config --global user.name "system"
 ENV GOPATH /app
 ENV GOBIN $GOPATH/bin
 RUN go get .
-RUN go build -o main . 
+RUN go build -o main .
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ./main
 
-EXPOSE 8080
+EXPOSE 8000

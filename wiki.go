@@ -18,25 +18,70 @@ import (
 	"github.com/russross/blackfriday"
 )
 
-// TODO(akavel): add usage help
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): allow deleting files from repo
-// TODO(akavel): use pure Go git implementation, if such is available
 // TODO(akavel): allow adding file attachments into the wiki (images, etc. - probably restrict extensions via flag)
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
+// TODO(akavel): [MAYBE] use pure Go git implementation, maybe go-git; but this may increase complexity too much
+
+func usage() {
+	fmt.Fprintf(os.Stderr, `USAGE: %s [FLAGS]
+
+Starts a simple wiki service using git as the storage back-end. Content is
+formatted in markdown syntax.
+
+WARNING: the wiki has no protections against malicious editing, and no support
+for multiple simultaneous editors.
+
+FLAGS:
+`, os.Args[0])
+	flag.PrintDefaults()
+	fmt.Fprintf(os.Stderr, `
+THEMING:
+
+Theme files must define a 'wiki' template (see https://golang.org/pkg/html/template).
+The following object is available in the template:
+
+	struct {
+		Path      string
+		File      string
+		Content   string
+		Revision  string
+		Dirs      []*struct{
+			Path   string
+			Name   string
+			Active bool
+		}
+		Revisions []*struct {
+			Hash    string
+			Message string
+			Time    string
+		}
+
+		IsHead    bool
+		Markdown  template.HTML
+	}
+
+Additionally, a "query" function is available in the template, returning a map
+providing access to the following URL parameters:
+
+	query.edit
+	query.show_revisions
+`)
+}
 
 var verbose = flag.Bool("v", false, "verbose output")
 
 func main() {
 	var (
-		addr = flag.String("http", ":8000", "local HTTP `address` to serve the wiki on")
-		// repo  = flag.String("wiki", ".", "`directory` with git repository containing wiki files")
-		repo = flag.String("wiki", "./files", "`directory` with git repository containing wiki files")
-		// theme = flag.String("theme", "./theme/_*.html", "shell (`glob`) pattern for layout templates; "+
-		theme = flag.String("theme", "./theme/*.tpl", "shell (`glob`) pattern for layout templates "+
-			"(must define 'edit' and 'view', see ParseGlob on https://golang.org/pkg/html/template); "+
-			"rest of files in the directory tree are served as static assets at /theme/ path")
+		addr  = flag.String("http", ":8000", "local HTTP `address` to serve the wiki on")
+		repo  = flag.String("wiki", "./files", "`directory` with git repository containing wiki files")
+		theme = flag.String("theme", "./theme/*.tpl",
+			"shell (`glob`) pattern for layout templates (must define 'wiki', see ParseGlob\n"+
+				"on https://golang.org/pkg/html/template); rest of files in the directory tree\n"+
+				"are served as static assets at /theme/ path")
 	)
+	flag.Usage = usage
 	flag.Parse()
 
 	// Static resources from the theme
