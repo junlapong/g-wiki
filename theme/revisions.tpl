@@ -3,13 +3,13 @@
  <hr />
  <p class="text-muted">Revisions:</p>
  <div class="list-group">
-  {{range $logFile := .LogFile}}
-   {{if $logFile.Link}}
-    <a href="?revision={{$logFile.Hash}}&show_revisions=1" class="list-group-item">
+  {{range $revision := .Revisions}}
+   {{if $revision.Link}}
+    <a href="?revision={{$revision.Hash}}&show_revisions=1" class="list-group-item">
    {{else}}
-    <a href="?revision={{$logFile.Hash}}&show_revisions=1" class="list-group-item active">
+    <a href="?revision={{$revision.Hash}}&show_revisions=1" class="list-group-item active">
    {{end}}
-    {{$logFile.Message}} ({{$logFile.Time}})
+    {{$revision.Message}} ({{$revision.Time}})
    </a>
    </li>
   {{end}}

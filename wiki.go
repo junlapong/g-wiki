@@ -195,12 +195,12 @@ func normalize(buf []byte) []byte {
 }
 
 type node struct {
-	Path     string
-	File     string
-	Content  string
-	Revision string
-	Dirs     []*directory
-	LogFile  []*logFile
+	Path      string
+	File      string
+	Content   string
+	Revision  string
+	Dirs      []*directory
+	Revisions []*revision
 
 	Repo string
 	// TODO(akavel): move this to a separate template variable/func, like POST or REQUEST in php
@@ -213,7 +213,7 @@ type directory struct {
 	Active bool
 }
 
-type logFile struct {
+type revision struct {
 	Hash    string
 	Message string
 	Time    string
@@ -221,7 +221,7 @@ type logFile struct {
 }
 
 func (node *node) IsHead() bool {
-	return len(node.LogFile) > 0 && node.Revision == node.LogFile[0].Hash
+	return len(node.Revisions) > 0 && node.Revision == node.Revisions[0].Hash
 }
 
 // Add node
@@ -252,7 +252,7 @@ func (node *node) GitLog() *node {
 	var err error
 	b := bufio.NewReader(bytes.NewReader(buf))
 	var bytes []byte
-	node.LogFile = make([]*logFile, 0)
+	node.Revisions = make([]*revision, 0)
 	for err == nil {
 		bytes, err = b.ReadSlice('\n')
 		logLine := parseLog(bytes)
@@ -261,21 +261,21 @@ func (node *node) GitLog() *node {
 		} else if logLine.Hash != node.Revision {
 			logLine.Link = true
 		}
-		node.LogFile = append(node.LogFile, logLine)
+		node.Revisions = append(node.Revisions, logLine)
 	}
-	if node.Revision == "" && len(node.LogFile) > 0 {
-		node.Revision = node.LogFile[0].Hash
-		node.LogFile[0].Link = false
+	if node.Revision == "" && len(node.Revisions) > 0 {
+		node.Revision = node.Revisions[0].Hash
+		node.Revisions[0].Link = false
 	}
 	return node
 }
 
-func parseLog(bytes []byte) *logFile {
+func parseLog(bytes []byte) *revision {
 	line := string(bytes)
 	re := regexp.MustCompile(`(.{0,7}) (\d+ \w+ ago) (.*)`)
 	matches := re.FindStringSubmatch(line)
 	if len(matches) == 4 {
-		return &logFile{Hash: matches[1], Time: matches[2], Message: matches[3]}
+		return &revision{Hash: matches[1], Time: matches[2], Message: matches[3]}
 	}
 	return nil
 }
