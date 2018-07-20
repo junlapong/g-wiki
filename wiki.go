@@ -20,7 +20,6 @@ import (
 
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): allow deleting files from repo
-// TODO(akavel): redirect .md URLs to non-.md equivalents
 // TODO(akavel): allow adding file attachments into the wiki (images, etc. - probably restrict extensions via flag)
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 // TODO(akavel): [MAYBE] use pure Go git implementation, maybe go-git; but this may increase complexity too much
@@ -131,15 +130,19 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// TODO(akavel): make below work also on case-insensitive filesystems
+	if strings.HasSuffix(urlPath, ".md") {
+		r.URL.Path = strings.TrimSuffix(urlPath, ".md")
+		http.Redirect(w, r, r.URL.String(), http.StatusFound)
+		return
+	}
 	// If a requested non-.md file exists on disk, return it, under assumption that it is a static resource
-	if !strings.HasSuffix(urlPath, ".md") {
-		filePath := strings.TrimLeft(urlPath, "/")
-		if serveFile(w, r, filePath) {
-			return
-		}
+	if serveFile(w, r, strings.TrimLeft(urlPath, "/")) {
+		return
 	}
 	switch urlPath {
 	case "/favicon.ico":
+		http.NotFound(w, r)
 		return
 	case "/index.html":
 		urlPath = "/"
@@ -160,7 +163,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	node := &node{
 		Path: urlPath,
-		File: strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
+		File: strings.TrimLeft(urlPath, "/") + ".md",
 		Dirs: listDirectories(urlPath),
 		repo: wiki.Repo,
 	}
