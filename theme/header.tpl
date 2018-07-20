@@ -10,8 +10,9 @@
 <div class="container">
  <div class="row col-md-9">
    <ol class="breadcrumb">
-    {{range $dir := .Dirs }}
-     {{if $dir.Active }}
+    {{$n := len .Dirs}}
+    {{range $i, $dir := .Dirs }}
+     {{ if $i | inc | eq $n }}
       <li class="active">{{$dir.Name}}</li>
      {{ else }}
       <li><a href="{{ $dir.Path }}">{{$dir.Name}}</a></li>

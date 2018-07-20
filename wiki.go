@@ -20,6 +20,7 @@ import (
 
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): allow deleting files from repo
+// TODO(akavel): redirect .md URLs to non-.md equivalents
 // TODO(akavel): allow adding file attachments into the wiki (images, etc. - probably restrict extensions via flag)
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 // TODO(akavel): [MAYBE] use pure Go git implementation, maybe go-git; but this may increase complexity too much
@@ -43,14 +44,13 @@ Theme files must define a 'wiki' template (see https://golang.org/pkg/html/templ
 The following object is available in the template:
 
 	struct {
-		Path      string
-		File      string
-		Content   string
-		Revision  string
-		Dirs      []*struct{
-			Path   string
-			Name   string
-			Active bool
+		Path     string
+		File     string
+		Content  string
+		Revision string
+		Dirs []*struct{
+			Path string
+			Name string
 		}
 		Revisions []*struct {
 			Hash    string
@@ -58,15 +58,16 @@ The following object is available in the template:
 			Time    string
 		}
 
-		IsHead    bool
-		Markdown  template.HTML
+		IsHead   bool
+		Markdown template.HTML
 	}
 
-Additionally, a "query" function is available in the template, returning a map
-providing access to the following URL parameters:
+Additionally, the following functions are available in the template:
 
-	query.edit
-	query.show_revisions
+	query   - returns a map providing access to the following URL parameters:
+		query.edit
+		query.show_revisions
+	inc INT - returns the INT value incremented by +1
 `)
 }
 
@@ -213,7 +214,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Println("Cannot serveFile:", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "Internal server error.", http.StatusInternalServerError)
 		return true
 	}
 	defer f.Close()
@@ -242,9 +243,8 @@ type node struct {
 }
 
 type directory struct {
-	Path   string
-	Name   string
-	Active bool
+	Path string
+	Name string
 }
 
 type revision struct {
@@ -319,9 +319,6 @@ func listDirectories(path string) []*directory {
 		}
 		s = append(s, &directory{Path: dirPath, Name: dir})
 	}
-	if len(s) > 0 {
-		s[len(s)-1].Active = true
-	}
 	return s
 }
 
@@ -366,17 +363,18 @@ func writeFile(entry string, bytes []byte) error {
 func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query map[string]string) {
 	funcs := template.FuncMap{
 		"query": func() map[string]string { return query },
+		"inc":   func(i int) int { return i + 1 },
 	}
 	t, err := template.New("wiki").Funcs(funcs).ParseGlob(wiki.TemplateGlob)
 	if err != nil {
 		log.Print("Could not parse template:", err)
 		// TODO(akavel): at least print a fallback simple HTML of the node for viewing
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "Internal server error.", http.StatusInternalServerError)
 		return
 	}
 	err = t.Execute(w, node)
 	if err != nil {
 		log.Printf("Could not execute template for node %q: %s", node.Path, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "Internal server error.", http.StatusInternalServerError)
 	}
 }
