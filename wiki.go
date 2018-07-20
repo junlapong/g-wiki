@@ -21,11 +21,8 @@ import (
 )
 
 // TODO(akavel): add usage help
-// TODO(akavel): load .md files from current working directory
-// TODO(akavel): ensure that URLs ending with .md are handled properly (redirect to non-.md URLs? but keep #anchors...)
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): allow deleting files from repo
-// TODO(akavel): (strip .md extension from paths of served files? (+) prettier URLs, more semantic; (-) .md keeps links valid offline !!!!)
 // TODO(akavel): use pure Go git implementation, if such is available
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 
@@ -110,7 +107,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Params
 	var (
 		content   = r.FormValue("content")
-		edit      = r.FormValue("edit")
+		edit      = r.FormValue("edit") // TODO(akavel): move into 'query'
 		changelog = r.FormValue("msg")
 		author    = r.FormValue("author")
 		reset     = r.FormValue("revert")
@@ -121,7 +118,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Path:          urlPath,
 		File:          strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
 		Dirs:          listDirectories(urlPath),
-		ShowRevisions: parseBool(r.FormValue("show_revisions")),
+		ShowRevisions: parseBool(r.FormValue("show_revisions")), // TODO(akavel): move into 'query'
 		Repo:          wiki.Repo,
 	}
 
@@ -217,7 +214,6 @@ type revision struct {
 	Hash    string
 	Message string
 	Time    string
-	Link    bool
 }
 
 func (node *node) IsHead() bool {
@@ -250,22 +246,19 @@ func (node *node) GitShow() *node {
 func (node *node) GitLog() *node {
 	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.Repo)
 	var err error
-	b := bufio.NewReader(bytes.NewReader(buf))
+	r := bufio.NewReader(bytes.NewReader(buf))
 	var bytes []byte
-	node.Revisions = make([]*revision, 0)
+	node.Revisions = nil
 	for err == nil {
-		bytes, err = b.ReadSlice('\n')
-		logLine := parseLog(bytes)
-		if logLine == nil {
+		bytes, err = r.ReadSlice('\n')
+		revision := parseLog(bytes)
+		if revision == nil {
 			continue
-		} else if logLine.Hash != node.Revision {
-			logLine.Link = true
 		}
-		node.Revisions = append(node.Revisions, logLine)
+		node.Revisions = append(node.Revisions, revision)
 	}
 	if node.Revision == "" && len(node.Revisions) > 0 {
 		node.Revision = node.Revisions[0].Hash
-		node.Revisions[0].Link = false
 	}
 	return node
 }
