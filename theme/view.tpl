@@ -6,7 +6,7 @@
 	{{- template "revision" . -}}
 {{- end -}}
 {{- template "node" . -}}
-{{- if .ShowRevisions -}}
+{{- if query.show_revisions -}}
 	{{- template "revisions" . -}}
 {{- end -}}
 {{- template "footer" . -}}

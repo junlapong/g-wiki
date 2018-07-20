@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/russross/blackfriday"
@@ -107,19 +106,21 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Params
 	var (
 		content   = r.FormValue("content")
-		edit      = r.FormValue("edit") // TODO(akavel): move into 'query'
 		changelog = r.FormValue("msg")
 		author    = r.FormValue("author")
 		reset     = r.FormValue("revert")
 		revision  = r.FormValue("revision")
 	)
+	query := map[string]string{
+		"edit":           r.FormValue("edit"),
+		"show_revisions": r.FormValue("show_revisions"),
+	}
 
 	node := &node{
-		Path:          urlPath,
-		File:          strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
-		Dirs:          listDirectories(urlPath),
-		ShowRevisions: parseBool(r.FormValue("show_revisions")), // TODO(akavel): move into 'query'
-		Repo:          wiki.Repo,
+		Path: urlPath,
+		File: strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
+		Dirs: listDirectories(urlPath),
+		Repo: wiki.Repo,
 	}
 
 	switch {
@@ -140,6 +141,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			node.Content = string(bytes)
 			node.GitAdd().GitCommit(changelog, author).GitLog()
 		}
+		// TODO(akavel): redirect to normal page, to shake off POST on browser refresh
 	case reset != "":
 		// Reset to revision
 		if *verbose {
@@ -149,6 +151,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
 		node.Revision = ""
 		node.GitShow().GitLog()
+		// TODO(akavel): redirect to normal page, to shake off POST on browser refresh
 	default:
 		// Show specific revision
 		if *verbose {
@@ -156,12 +159,8 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		node.Revision = revision
 		node.GitShow().GitLog()
-		if edit == "true" || node.Content == "" {
-			wiki.renderTemplate(w, "edit", node)
-			return
-		}
 	}
-	wiki.renderTemplate(w, "view", node)
+	wiki.renderTemplate(w, node, query)
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, path string) bool {
@@ -199,9 +198,8 @@ type node struct {
 	Dirs      []*directory
 	Revisions []*revision
 
+	// FIXME(akavel): this should not have to be here
 	Repo string
-	// TODO(akavel): move this to a separate template variable/func, like POST or REQUEST in php
-	ShowRevisions bool
 }
 
 type directory struct {
@@ -319,14 +317,6 @@ func (node *node) Markdown() template.HTML {
 	return template.HTML(blackfriday.MarkdownCommon([]byte(node.Content)))
 }
 
-func parseBool(value string) bool {
-	boolValue, err := strconv.ParseBool(value)
-	if err != nil {
-		return false
-	}
-	return boolValue
-}
-
 func writeFile(entry string, bytes []byte) error {
 	// FIXME(akavel): make sure to sanitize the 'entry' path
 	err := os.MkdirAll(path.Dir(entry), 0755)
@@ -336,17 +326,20 @@ func writeFile(entry string, bytes []byte) error {
 	return ioutil.WriteFile(entry, bytes, 0644)
 }
 
-func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, name string, node *node) {
-	t, err := template.New("wiki").ParseGlob(wiki.TemplateGlob)
+func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query map[string]string) {
+	funcs := template.FuncMap{
+		"query": func() map[string]string { return query },
+	}
+	t, err := template.New("wiki").Funcs(funcs).ParseGlob(wiki.TemplateGlob)
 	if err != nil {
 		log.Print("Could not parse template:", err)
 		// TODO(akavel): at least print a fallback simple HTML of the node for viewing
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	err = t.ExecuteTemplate(w, name, node)
+	err = t.Execute(w, node)
 	if err != nil {
-		log.Printf("Could not execute template %q for node %q: %s", name, node.Path, err)
+		log.Printf("Could not execute template for node %q: %s", node.Path, err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
