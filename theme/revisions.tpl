@@ -3,7 +3,7 @@
  <hr />
  <p class="text-muted">Revisions:</p>
  <div class="list-group">
-  {{range $logFile := .logFile}}
+  {{range $logFile := .LogFile}}
    {{if $logFile.Link}}
     <a href="?revision={{$logFile.Hash}}&revisions=1" class="list-group-item">
    {{else}}

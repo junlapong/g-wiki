@@ -200,7 +200,7 @@ type node struct {
 	Content  string
 	Revision string
 	Dirs     []*directory
-	logFile  []*logFile
+	LogFile  []*logFile
 
 	Revisions bool // Show revisions
 	Repo      string
@@ -220,7 +220,7 @@ type logFile struct {
 }
 
 func (node *node) IsHead() bool {
-	return len(node.logFile) > 0 && node.Revision == node.logFile[0].Hash
+	return len(node.LogFile) > 0 && node.Revision == node.LogFile[0].Hash
 }
 
 // Add node
@@ -251,7 +251,7 @@ func (node *node) GitLog() *node {
 	var err error
 	b := bufio.NewReader(bytes.NewReader(buf))
 	var bytes []byte
-	node.logFile = make([]*logFile, 0)
+	node.LogFile = make([]*logFile, 0)
 	for err == nil {
 		bytes, err = b.ReadSlice('\n')
 		logLine := parseLog(bytes)
@@ -260,11 +260,11 @@ func (node *node) GitLog() *node {
 		} else if logLine.Hash != node.Revision {
 			logLine.Link = true
 		}
-		node.logFile = append(node.logFile, logLine)
+		node.LogFile = append(node.LogFile, logLine)
 	}
-	if node.Revision == "" && len(node.logFile) > 0 {
-		node.Revision = node.logFile[0].Hash
-		node.logFile[0].Link = false
+	if node.Revision == "" && len(node.LogFile) > 0 {
+		node.Revision = node.LogFile[0].Hash
+		node.LogFile[0].Link = false
 	}
 	return node
 }
