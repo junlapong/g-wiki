@@ -260,28 +260,28 @@ func (node *node) IsHead() bool {
 }
 
 func (node *node) gitAdd() *node {
-	gitCmd(exec.Command("git", "add", "--", node.File), node.repo)
+	node.git("add", "--", node.File)
 	return node
 }
 
 func (node *node) gitCommit(msg string, author string) *node {
 	if author != "" {
-		gitCmd(exec.Command("git", "commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author)), node.repo)
+		node.git("commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author))
 	} else {
-		gitCmd(exec.Command("git", "commit", "-m", msg), node.repo)
+		node.git("commit", "-m", msg)
 	}
 	return node
 }
 
 func (node *node) gitShow() *node {
-	node.Content = string(gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.repo))
+	node.Content = string(node.git("show", node.Revision+":./"+node.File))
 	return node
 }
 
 func (node *node) gitLog() *node {
 	// TODO(akavel): make this configurable?
 	const logLimit = "5"
-	stdout := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.repo)
+	stdout := node.git("log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File)
 	node.Revisions = nil
 	for _, line := range strings.Split(string(stdout), "\n") {
 		revision := parseLog(line)
@@ -323,13 +323,15 @@ func listDirectories(path string) []*directory {
 // Soft reset to specific revision
 func (node *node) gitRevert() *node {
 	log.Printf("Reverts %s to revision %s", node.File, node.Revision)
-	gitCmd(exec.Command("git", "checkout", node.Revision, "--", node.File), node.repo)
+	node.git("checkout", node.Revision, "--", node.File)
 	return node
 }
 
-// Run git command, will currently die on all errors
-func gitCmd(cmd *exec.Cmd, baseDirectory string) []byte {
-	cmd.Dir = fmt.Sprintf("%s/", baseDirectory)
+// git executes a git command with provided arguments.
+// Returns nil and logs a message in case of error.
+func (node *node) git(arguments ...string) []byte {
+	cmd := exec.Command("git", arguments...)
+	cmd.Dir = fmt.Sprintf("%s/", node.repo)
 	if *verbose {
 		log.Printf("(wd: %s) %v", cmd.Dir, cmd.Args)
 	}
