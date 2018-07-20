@@ -160,7 +160,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Path: urlPath,
 		File: strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
 		Dirs: listDirectories(urlPath),
-		Repo: wiki.Repo,
+		repo: wiki.Repo,
 	}
 
 	switch {
@@ -179,7 +179,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Wrote file, commit
 			node.Content = string(bytes)
-			node.GitAdd().GitCommit(changelog, author).GitLog()
+			node.gitAdd().gitCommit(changelog, author).gitLog()
 		}
 		// TODO(akavel): redirect to normal page, to shake off POST on browser refresh
 	case reset != "":
@@ -188,9 +188,9 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Printf("(resetting %q to revision %s)", node.File, reset)
 		}
 		node.Revision = reset
-		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
+		node.gitRevert().gitCommit("Reverted to: "+node.Revision, author)
 		node.Revision = ""
-		node.GitShow().GitLog()
+		node.gitShow().gitLog()
 		// TODO(akavel): redirect to normal page, to shake off POST on browser refresh
 	default:
 		// Show specific revision
@@ -198,7 +198,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Printf("(showing %q at revision %s)", node.File, revision)
 		}
 		node.Revision = revision
-		node.GitShow().GitLog()
+		node.gitShow().gitLog()
 	}
 	wiki.renderTemplate(w, node, query)
 }
@@ -239,7 +239,7 @@ type node struct {
 	Revisions []*revision
 
 	// FIXME(akavel): this should not have to be here
-	Repo string
+	repo string
 }
 
 type directory struct {
@@ -258,32 +258,32 @@ func (node *node) IsHead() bool {
 }
 
 // Add node
-func (node *node) GitAdd() *node {
-	gitCmd(exec.Command("git", "add", "--", node.File), node.Repo)
+func (node *node) gitAdd() *node {
+	gitCmd(exec.Command("git", "add", "--", node.File), node.repo)
 	return node
 }
 
 // Commit node message
-func (node *node) GitCommit(msg string, author string) *node {
+func (node *node) gitCommit(msg string, author string) *node {
 	if author != "" {
-		gitCmd(exec.Command("git", "commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author)), node.Repo)
+		gitCmd(exec.Command("git", "commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author)), node.repo)
 	} else {
-		gitCmd(exec.Command("git", "commit", "-m", msg), node.Repo)
+		gitCmd(exec.Command("git", "commit", "-m", msg), node.repo)
 	}
 	return node
 }
 
 // Fetch node revision
-func (node *node) GitShow() *node {
-	node.Content = string(gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.Repo))
+func (node *node) gitShow() *node {
+	node.Content = string(gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.repo))
 	return node
 }
 
 // Fetch node logFile
-func (node *node) GitLog() *node {
+func (node *node) gitLog() *node {
 	// TODO(akavel): make this configurable?
 	const logLimit = "5"
-	stdout := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.Repo)
+	stdout := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.repo)
 	node.Revisions = nil
 	for _, line := range strings.Split(string(stdout), "\n") {
 		revision := parseLog(line)
@@ -323,9 +323,9 @@ func listDirectories(path string) []*directory {
 }
 
 // Soft reset to specific revision
-func (node *node) GitRevert() *node {
+func (node *node) gitRevert() *node {
 	log.Printf("Reverts %s to revision %s", node.File, node.Revision)
-	gitCmd(exec.Command("git", "checkout", node.Revision, "--", node.File), node.Repo)
+	gitCmd(exec.Command("git", "checkout", node.Revision, "--", node.File), node.repo)
 	return node
 }
 
