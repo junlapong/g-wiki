@@ -125,8 +125,9 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Repo:      wiki.Repo,
 	}
 
-	if len(content) != 0 {
-		if len(changelog) == 0 {
+	switch {
+	case content != "":
+		if changelog == "" {
 			changelog = "Update " + node.File
 		}
 		filePath := filepath.Join(wiki.Repo, node.File)
@@ -143,7 +144,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			node.GitAdd().GitCommit(changelog, author).GitLog()
 			node.ToMarkdown()
 		}
-	} else if reset != "" {
+	case reset != "":
 		// Reset to revision
 		if *verbose {
 			log.Printf("(resetting %q to revision %s)", node.File, reset)
@@ -152,7 +153,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
 		node.Revision = ""
 		node.GitShow().GitLog().ToMarkdown()
-	} else {
+	default:
 		// Show specific revision
 		if *verbose {
 			log.Printf("(showing %q at revision %s)", node.File, revision)
