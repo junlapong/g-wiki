@@ -99,6 +99,8 @@ func main() {
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
+// HttpRejectGlob returns a 404 Not Found error in case the request path (normalized) matches the glob.
+// Otherwise (when glob doesn't match), h is called.
 func HttpRejectGlob(glob string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := filepath.Clean(strings.TrimLeft(r.URL.Path, "/"))
@@ -257,13 +259,11 @@ func (node *node) IsHead() bool {
 	return len(node.Revisions) > 0 && node.Revision == node.Revisions[0].Hash
 }
 
-// Add node
 func (node *node) gitAdd() *node {
 	gitCmd(exec.Command("git", "add", "--", node.File), node.repo)
 	return node
 }
 
-// Commit node message
 func (node *node) gitCommit(msg string, author string) *node {
 	if author != "" {
 		gitCmd(exec.Command("git", "commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author)), node.repo)
@@ -273,13 +273,11 @@ func (node *node) gitCommit(msg string, author string) *node {
 	return node
 }
 
-// Fetch node revision
 func (node *node) gitShow() *node {
 	node.Content = string(gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.repo))
 	return node
 }
 
-// Fetch node logFile
 func (node *node) gitLog() *node {
 	// TODO(akavel): make this configurable?
 	const logLimit = "5"
@@ -309,7 +307,7 @@ func parseLog(line string) *revision {
 }
 
 func listDirectories(path string) []*directory {
-	s := make([]*directory, 0)
+	var s []*directory
 	dirPath := ""
 	for i, dir := range strings.Split(path, "/") {
 		if i == 0 {
