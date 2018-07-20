@@ -140,9 +140,8 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Can't write to file %q, error: %v", filePath, err)
 		} else {
 			// Wrote file, commit
-			node.Bytes = bytes
+			node.Content = string(bytes)
 			node.GitAdd().GitCommit(changelog, author).GitLog()
-			node.ToMarkdown()
 		}
 	case reset != "":
 		// Reset to revision
@@ -152,7 +151,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		node.Revision = reset
 		node.GitRevert().GitCommit("Reverted to: "+node.Revision, author)
 		node.Revision = ""
-		node.GitShow().GitLog().ToMarkdown()
+		node.GitShow().GitLog()
 	default:
 		// Show specific revision
 		if *verbose {
@@ -160,12 +159,9 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		node.Revision = revision
 		node.GitShow().GitLog()
-		if edit == "true" || len(node.Bytes) == 0 {
-			node.Content = string(node.Bytes)
+		if edit == "true" || node.Content == "" {
 			wiki.renderTemplate(w, "edit", node)
 			return
-		} else {
-			node.ToMarkdown()
 		}
 	}
 	wiki.renderTemplate(w, "view", node)
@@ -203,10 +199,8 @@ type node struct {
 	File     string
 	Content  string
 	Revision string
-	Bytes    []byte
 	Dirs     []*directory
 	logFile  []*logFile
-	Markdown template.HTML
 
 	Revisions bool // Show revisions
 	Repo      string
@@ -247,7 +241,7 @@ func (node *node) GitCommit(msg string, author string) *node {
 
 // Fetch node revision
 func (node *node) GitShow() *node {
-	node.Bytes = gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.Repo)
+	node.Content = string(gitCmd(exec.Command("git", "show", node.Revision+":./"+node.File), node.Repo))
 	return node
 }
 
@@ -327,9 +321,8 @@ func gitCmd(cmd *exec.Cmd, baseDirectory string) []byte {
 	return stdout.Bytes()
 }
 
-// ToMarkdown Process node contents
-func (node *node) ToMarkdown() {
-	node.Markdown = template.HTML(string(blackfriday.MarkdownCommon(node.Bytes)))
+func (node *node) Markdown() template.HTML {
+	return template.HTML(blackfriday.MarkdownCommon([]byte(node.Content)))
 }
 
 func parseBool(value string) bool {
