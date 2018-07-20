@@ -4,7 +4,7 @@ import "testing"
 
 func TestParseLogLine(t *testing.T) {
 	input := `a926492 28 hours ago "asdfasdf asdf"asdfasdf asdf test test!!`
-	logFile := parseLog([]byte(input))
+	logFile := parseLog(input)
 	hash := "a926492"
 	msg := `"asdfasdf asdf"asdfasdf asdf test test!!`
 	time := "28 hours ago"

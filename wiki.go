@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -69,10 +68,6 @@ func HttpRejectGlob(glob string, h http.Handler) http.Handler {
 		}
 	})
 }
-
-const (
-	logLimit = "5"
-)
 
 type wikiHandler struct {
 	Repo         string
@@ -241,14 +236,12 @@ func (node *node) GitShow() *node {
 
 // Fetch node logFile
 func (node *node) GitLog() *node {
-	buf := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.Repo)
-	var err error
-	r := bufio.NewReader(bytes.NewReader(buf))
-	var bytes []byte
+	// TODO(akavel): make this configurable?
+	const logLimit = "5"
+	stdout := gitCmd(exec.Command("git", "log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File), node.Repo)
 	node.Revisions = nil
-	for err == nil {
-		bytes, err = r.ReadSlice('\n')
-		revision := parseLog(bytes)
+	for _, line := range strings.Split(string(stdout), "\n") {
+		revision := parseLog(line)
 		if revision == nil {
 			continue
 		}
@@ -260,8 +253,8 @@ func (node *node) GitLog() *node {
 	return node
 }
 
-func parseLog(bytes []byte) *revision {
-	line := string(bytes)
+func parseLog(line string) *revision {
+	// TODO(akavel): allow showing page diffs, maybe as method on revision type
 	re := regexp.MustCompile(`(.{0,7}) (\d+ \w+ ago) (.*)`)
 	matches := re.FindStringSubmatch(line)
 	if len(matches) == 4 {
