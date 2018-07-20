@@ -23,6 +23,7 @@ import (
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
 // TODO(akavel): allow deleting files from repo
 // TODO(akavel): use pure Go git implementation, if such is available
+// TODO(akavel): allow adding file attachments into the wiki (images, etc. - probably restrict extensions via flag)
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 
 var verbose = flag.Bool("v", false, "verbose output")
@@ -47,8 +48,6 @@ func main() {
 	http.Handle("/", &wikiHandler{
 		Repo:         *repo,
 		TemplateGlob: *theme,
-		// // TODO(akavel): allow dynamic editing, don't cache templates in memory
-		// Template: template.Must(template.New("").ParseGlob(*theme)),
 	})
 
 	log.Printf("Starting a server on %s...", *addr)
