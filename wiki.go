@@ -118,11 +118,11 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	node := &node{
-		Path:      urlPath,
-		File:      strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
-		Dirs:      listDirectories(urlPath),
-		Revisions: parseBool(r.FormValue("revisions")),
-		Repo:      wiki.Repo,
+		Path:          urlPath,
+		File:          strings.TrimSuffix(strings.TrimLeft(urlPath, "/"), ".md") + ".md",
+		Dirs:          listDirectories(urlPath),
+		ShowRevisions: parseBool(r.FormValue("show_revisions")),
+		Repo:          wiki.Repo,
 	}
 
 	switch {
@@ -202,8 +202,9 @@ type node struct {
 	Dirs     []*directory
 	LogFile  []*logFile
 
-	Revisions bool // Show revisions
-	Repo      string
+	Repo string
+	// TODO(akavel): move this to a separate template variable/func, like POST or REQUEST in php
+	ShowRevisions bool
 }
 
 type directory struct {

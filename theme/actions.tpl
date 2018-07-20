@@ -5,7 +5,7 @@
    <button type="submit" class="btn btn-default btn-xs" name="edit" value="true">
     <span class="glyphicon glyphicon-edit"></span>Edit
    </button>
-   <button type="submit" class="btn btn-default btn-xs" name="revisions" value="true">
+   <button type="submit" class="btn btn-default btn-xs" name="show_revisions" value="true">
     <span class="glyphicon glyphicon-list-alt"></span> Revisions 
    </button>
   </div>

@@ -5,9 +5,9 @@
  <div class="list-group">
   {{range $logFile := .LogFile}}
    {{if $logFile.Link}}
-    <a href="?revision={{$logFile.Hash}}&revisions=1" class="list-group-item">
+    <a href="?revision={{$logFile.Hash}}&show_revisions=1" class="list-group-item">
    {{else}}
-    <a href="?revision={{$logFile.Hash}}&revisions=1" class="list-group-item active">
+    <a href="?revision={{$logFile.Hash}}&show_revisions=1" class="list-group-item active">
    {{end}}
     {{$logFile.Message}} ({{$logFile.Time}})
    </a>
