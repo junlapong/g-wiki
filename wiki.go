@@ -145,6 +145,9 @@ type wikiHandler struct {
 
 func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	urlPath := path.Clean(filepath.ToSlash(r.URL.Path))
+	if queryPath := r.FormValue("path"); queryPath != "" {
+		urlPath = "/" + cleanPath(queryPath)
+	}
 	// Don't show any files or directories with names starting with "." (especially ".git")
 	for _, segment := range strings.Split(urlPath, "/") {
 		if strings.HasPrefix(segment, ".") {

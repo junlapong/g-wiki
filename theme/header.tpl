@@ -10,12 +10,15 @@
 <div class="container">
  <div class="row col-md-9">
    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
     {{$n := len .Dirs}}
     {{range $i, $dir := .Dirs }}
-     {{ if $i | inc | eq $n }}
-      <li class="active">{{$dir.Name}}</li>
-     {{ else }}
-      <li><a href="{{ $dir.Path }}">{{$dir.Name}}</a></li>
+     {{ if gt $i 0 }}
+      {{ if $i | inc | eq $n }}
+       <li class="active">{{$dir.Name}}</li>
+      {{ else }}
+       <li><a href="{{ $dir.Path }}">{{$dir.Name}}</a></li>
+      {{ end }}
      {{ end }}
     {{ end }}
    </ol>

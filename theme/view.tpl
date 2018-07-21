@@ -9,6 +9,7 @@
 {{- if query.show_revisions -}}
 	{{- template "revisions" . -}}
 {{- end -}}
+{{- if eq .Path "/" }}
 <div class="row col-md-9">
  <div class="well">
   <!-- form class="form-inline" role="form"-->
@@ -16,18 +17,25 @@
    <!-- div class="form-group"-->
    <div class="input-group">
     <div class="input-group-btn">
-     <button type="submit" class="btn btn-default">New page</button>
+     <button type="submit" class="btn btn-default" name="edit" value="true">Edit page</button>
     </div>
-    <input type="text" class="form-control" id="new" placeholder="File name" />
+    <input type="text" class="form-control" name="path" placeholder="Path" />
    </div>
   </form>
  </div>
  <p>Nodes</p>
  <ul>
- {{ range $f := glob "/*.md" | reverse }}
- <li>{{ $f.Path }}</li>
+{{ range $f := glob "/20??-??-??*.md" | reverse }}
+ {{ if $f.Path | matchre "[0-9]quick\\." }}
+  <li>{{ $f.Markdown }}</li>
+ {{ else }}
+ </ul>
+ <div class="well"><a href="{{$f.Path}}">{{$f.Path}}</a></div>
+ <ul>
  {{ end }}
  </ul>
+{{ end }}
 </div>
+{{- end -}}
 {{- template "footer" . -}}
 {{ end }}
