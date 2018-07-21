@@ -80,10 +80,15 @@ The following object is available in the template:
 Additionally, the following functions are available in the template:
 
 	query   - returns a map providing access to the following URL parameters:
-		query.edit
-		query.show_revisions
+	        query.edit
+	        query.show_revisions
 	inc INT - returns the INT value incremented by +1
-	glob PATTERN - returns a list of pages matching the file pattern
+	glob PATTERN
+	        - returns a list of pages matching the file pattern
+	reverse - returns a list of pages with swapped order
+	matchre PATTERN STRING
+	        - returns the first capture from the regular expression if matched,
+	        or the whole match if no captures were specified
 `)
 }
 
@@ -384,9 +389,11 @@ func writeFile(entry string, bytes []byte) error {
 
 func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query map[string]string) {
 	funcs := template.FuncMap{
-		"query": func() map[string]string { return query },
-		"inc":   func(i int) int { return i + 1 },
-		"glob":  wiki.glob,
+		"query":   func() map[string]string { return query },
+		"inc":     func(i int) int { return i + 1 },
+		"glob":    wiki.glob,
+		"matchre": matchre,
+		"reverse": reverse,
 	}
 	t, err := template.New("wiki").Funcs(funcs).ParseGlob(wiki.TemplateGlob)
 	if err != nil {
@@ -443,6 +450,32 @@ func (wiki *wikiHandler) glob(glob string) []*node {
 		nodes = append(nodes, node)
 	}
 	return nodes
+}
+
+func matchre(pattern, s string) (string, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return "", err
+	}
+	m := re.FindStringSubmatch(s)
+	switch len(m) {
+	case 0:
+		return "", nil
+	case 1:
+		return m[0], nil
+	default:
+		return m[1], nil
+	}
+}
+
+// TODO(akavel): make it work not only on nodes, but any slice & string (with reflect pkg)
+func reverse(nodes []*node) []*node {
+	n := len(nodes)
+	r := make([]*node, n)
+	for i := range r {
+		r[i] = nodes[n-i-1]
+	}
+	return r
 }
 
 // TODO(akavel): use this in all places where Clean/TrimLeft/ToSlash is used

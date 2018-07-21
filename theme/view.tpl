@@ -24,7 +24,7 @@
  </div>
  <p>Nodes</p>
  <ul>
- {{ range $f := glob "/*.md" }}
+ {{ range $f := glob "/*.md" | reverse }}
  <li>{{ $f.Path }}</li>
  {{ end }}
  </ul>
