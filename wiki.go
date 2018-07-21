@@ -83,6 +83,7 @@ Additionally, the following functions are available in the template:
 		query.edit
 		query.show_revisions
 	inc INT - returns the INT value incremented by +1
+	glob PATTERN - returns a list of pages matching the file pattern
 `)
 }
 
@@ -106,7 +107,7 @@ func main() {
 
 	// Main wiki handler
 	http.Handle("/", &wikiHandler{
-		Repo:         *repo,
+		Repo:         repository(*repo),
 		TemplateGlob: *theme,
 	})
 
@@ -133,7 +134,7 @@ func HttpRejectGlob(glob string, h http.Handler) http.Handler {
 }
 
 type wikiHandler struct {
-	Repo         string
+	Repo         repository
 	TemplateGlob string
 }
 
@@ -189,7 +190,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if changelog == "" {
 			changelog = "Update " + node.File
 		}
-		filePath := filepath.Join(wiki.Repo, node.File)
+		filePath := filepath.Join(string(wiki.Repo), node.File)
 		bytes := normalize([]byte(content))
 		if *verbose {
 			log.Printf("(writing %d bytes to file %q)", len(bytes), filePath)
@@ -260,7 +261,7 @@ type node struct {
 	Revisions []*revision
 
 	// FIXME(akavel): this should not have to be here
-	repo string
+	repo repository
 }
 
 type directory struct {
@@ -279,28 +280,28 @@ func (node *node) IsHead() bool {
 }
 
 func (node *node) gitAdd() *node {
-	node.git("add", "--", node.File)
+	node.repo.git("add", "--", node.File)
 	return node
 }
 
 func (node *node) gitCommit(msg string, author string) *node {
 	if author != "" {
-		node.git("commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author))
+		node.repo.git("commit", "-m", msg, fmt.Sprintf("--author='%s <system@g-wiki>'", author))
 	} else {
-		node.git("commit", "-m", msg)
+		node.repo.git("commit", "-m", msg)
 	}
 	return node
 }
 
 func (node *node) gitShow() *node {
-	node.Content = string(node.git("show", node.Revision+":./"+node.File))
+	node.Content = string(node.repo.git("show", node.Revision+":./"+node.File))
 	return node
 }
 
 func (node *node) gitLog() *node {
 	// TODO(akavel): make this configurable?
 	const logLimit = "5"
-	stdout := node.git("log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File)
+	stdout := node.repo.git("log", "--pretty=format:%h %ad %s", "--date=relative", "-n", logLimit, "--", node.File)
 	node.Revisions = nil
 	for _, line := range strings.Split(string(stdout), "\n") {
 		revision := parseLog(line)
@@ -342,15 +343,17 @@ func listDirectories(path string) []*directory {
 // Soft reset to specific revision
 func (node *node) gitRevert() *node {
 	log.Printf("Reverts %s to revision %s", node.File, node.Revision)
-	node.git("checkout", node.Revision, "--", node.File)
+	node.repo.git("checkout", node.Revision, "--", node.File)
 	return node
 }
 
+type repository string
+
 // git executes a git command with provided arguments.
 // Returns nil and logs a message in case of error.
-func (node *node) git(arguments ...string) []byte {
+func (repo repository) git(arguments ...string) []byte {
 	cmd := exec.Command("git", arguments...)
-	cmd.Dir = fmt.Sprintf("%s/", node.repo)
+	cmd.Dir = fmt.Sprintf("%s/", repo)
 	if *verbose {
 		log.Printf("(wd: %s) %v", cmd.Dir, cmd.Args)
 	}
@@ -383,6 +386,7 @@ func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query
 	funcs := template.FuncMap{
 		"query": func() map[string]string { return query },
 		"inc":   func(i int) int { return i + 1 },
+		"glob":  wiki.glob,
 	}
 	t, err := template.New("wiki").Funcs(funcs).ParseGlob(wiki.TemplateGlob)
 	if err != nil {
@@ -396,4 +400,53 @@ func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query
 		log.Printf("Could not execute template for node %q: %s", node.Path, err)
 		http.Error(w, "Internal server error.", http.StatusInternalServerError)
 	}
+}
+
+// NOTE: glob pattern must not start with "/" here
+func (wiki *wikiHandler) glob(glob string) []*node {
+	rawGlob, glob := glob, cleanPath(glob)
+	// TODO(akavel): use -z option, or unquote filenames to be safe with special chars
+	lines := string(wiki.Repo.git("ls-tree", "HEAD", "--", path.Dir(glob)+"/"))
+	// Example lines emitted by `git ls-tree` (blob means a file, tree means a directory):
+	//
+	// 040000 tree ef240d2545ebf7e8a04ff09b9a0b5686782c06e4	theme
+	// 100755 blob bb3b016d78458c9b8ef1549597e77f44529905fc	wiki.go
+	re := regexp.MustCompile(`(\S+) (\S+) (\S+)\t(.*)`)
+	var nodes []*node
+	for _, line := range strings.Split(lines, "\n") {
+		m := re.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		typ, file := m[2], m[4]
+		if typ != "blob" || !strings.HasSuffix(file, ".md") {
+			continue
+		}
+		match, err := path.Match(glob, file)
+		if err != nil {
+			// According to path.Match godoc: "The only possible
+			// returned error is ErrBadPattern, when pattern is
+			// malformed"
+			log.Println("glob: %v: %q", err, rawGlob)
+			return nil
+		}
+		if !match {
+			continue
+		}
+		node := &node{
+			Path: "/" + strings.TrimSuffix(file, ".md"),
+			File: file,
+			Dirs: listDirectories("/" + file),
+			repo: wiki.Repo,
+		}
+		node.gitShow()
+		nodes = append(nodes, node)
+	}
+	return nodes
+}
+
+// TODO(akavel): use this in all places where Clean/TrimLeft/ToSlash is used
+// TODO(akavel): somehow check if this is enough sanitization or not yet (vs. filepath.Clean?)
+func cleanPath(p string) string {
+	return strings.TrimLeft(path.Clean(filepath.ToSlash(p)), "/")
 }

@@ -9,5 +9,11 @@
 {{- if query.show_revisions -}}
 	{{- template "revisions" . -}}
 {{- end -}}
+<p>Nodes</p>
+<ul>
+{{ range $f := glob "/*.md" }}
+<li>{{ $f.Path }}</li>
+{{ end }}
+</ul>
 {{- template "footer" . -}}
 {{ end }}
