@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -202,6 +203,17 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		repo: wiki.Repo,
 	}
 
+	// TODO(akavel): maybe save to subdir named after node's filename
+	// TODO(akavel): or, create a random filename (or suffix) when saving
+	attachment, err := handleUpload(r, "attachment", filepath.Join(string(wiki.Repo), path.Dir(node.File)))
+	if err != nil {
+		log.Println(err)
+	} else {
+		node.repo.git("add", "--", filepath.Join(path.Dir(node.File), attachment))
+		node.repo.git("commit", "-m", "Uploaded: "+attachment)
+		content += fmt.Sprintf("\n[%[1]s](%[1]s)", attachment)
+	}
+
 	switch {
 	case content != "":
 		if changelog == "" {
@@ -267,6 +279,30 @@ func normalize(buf []byte) []byte {
 	// make sure there are no remaining CRs
 	buf = bytes.Replace(buf, []byte("\r"), []byte("\n"), -1)
 	return buf
+}
+
+func handleUpload(r *http.Request, field, dir string) (string, error) {
+	upload, info, err := r.FormFile("attachment")
+	if err == http.ErrMissingFile {
+		return "", nil
+	} else if err != nil {
+		return "", fmt.Errorf("opening %s: %v", field, err)
+	}
+	defer upload.Close()
+	f, err := os.OpenFile(filepath.Join(dir, info.Filename), os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return "", fmt.Errorf("saving %s: %v", field, err)
+	}
+	defer f.Close()
+	_, err = io.Copy(f, upload)
+	if err != nil {
+		return "", fmt.Errorf("writing %s: %v", field, err)
+	}
+	err = f.Close()
+	if err != nil {
+		return "", fmt.Errorf("closing %s: %v", field, err)
+	}
+	return info.Filename, nil
 }
 
 type node struct {
