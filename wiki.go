@@ -172,7 +172,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// If a requested non-.md file exists on disk, return it, under assumption that it is a static resource
-	if serveFile(w, r, strings.TrimLeft(urlPath, "/")) {
+	if serveFile(w, r, filepath.Join(string(wiki.Repo), strings.TrimLeft(urlPath, "/"))) {
 		return
 	}
 	switch urlPath {
