@@ -19,7 +19,7 @@
     <div class="input-group-btn">
      <button type="submit" class="btn btn-default" name="edit" value="true">Edit page</button>
     </div>
-    <input type="text" class="form-control" name="path" placeholder="Path" />
+    <input type="text" class="form-control" name="path" placeholder="Path" value="{{ now.Format "2006-01-02-1504." }}" />
    </div>
   </form>
  </div>
