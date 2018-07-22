@@ -145,8 +145,13 @@ type wikiHandler struct {
 
 func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	urlPath := path.Clean(filepath.ToSlash(r.URL.Path))
-	if queryPath := r.FormValue("path"); queryPath != "" {
-		urlPath = "/" + cleanPath(queryPath)
+	if urlPath == "" || urlPath == "/" {
+		p := r.FormValue("path")
+		if p != "" && p != "/" && p != "." {
+			r.URL.Path = "/" + strings.TrimSuffix(cleanPath(p), ".md")
+			http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
+			return
+		}
 	}
 	// Don't show any files or directories with names starting with "." (especially ".git")
 	for _, segment := range strings.Split(urlPath, "/") {
@@ -158,7 +163,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO(akavel): make below work also on case-insensitive filesystems
 	if strings.HasSuffix(urlPath, ".md") {
 		r.URL.Path = strings.TrimSuffix(urlPath, ".md")
-		http.Redirect(w, r, r.URL.String(), http.StatusFound)
+		http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
 		return
 	}
 	// If a requested non-.md file exists on disk, return it, under assumption that it is a static resource

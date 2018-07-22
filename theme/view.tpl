@@ -23,18 +23,18 @@
    </div>
   </form>
  </div>
- <p>Nodes</p>
+
  <ul>
 {{ range $f := glob "/20??-??-??*.md" | reverse }}
  {{ if $f.Path | matchre "[0-9]quick\\." }}
   <li>{{ $f.Markdown }}</li>
  {{ else }}
  </ul>
- <div class="well"><a href="{{$f.Path}}">{{$f.Path}}</a></div>
+ <div class="well">{{ $f.Markdown }}</div>
  <ul>
  {{ end }}
- </ul>
 {{ end }}
+ </ul>
 </div>
 {{- end -}}
 {{- template "footer" . -}}
