@@ -74,11 +74,13 @@ The following object is available in the template:
 		}
 
 		IsHead   bool
-		Markdown template.HTML
 	}
 
 Additionally, the following functions are available in the template:
 
+	markdown STRING
+	        - returns HTML render of a Markdown-formatted argument
+	          Warning: not safe on user-submitted content such as comments
 	query   - returns a map providing access to the following URL parameters:
 	        query.edit
 	        query.show_revisions
@@ -88,7 +90,7 @@ Additionally, the following functions are available in the template:
 	reverse - returns a list of pages with swapped order
 	matchre PATTERN STRING
 	        - returns the first capture from the regular expression if matched,
-	        or the whole match if no captures were specified
+	          or the whole match if no captures were specified
 `)
 }
 
@@ -382,10 +384,6 @@ func (repo repository) git(arguments ...string) []byte {
 	return stdout.Bytes()
 }
 
-func (node *node) Markdown() template.HTML {
-	return template.HTML(blackfriday.MarkdownCommon([]byte(node.Content)))
-}
-
 func writeFile(entry string, bytes []byte) error {
 	// FIXME(akavel): make sure to sanitize the 'entry' path
 	err := os.MkdirAll(path.Dir(entry), 0755)
@@ -402,6 +400,8 @@ func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query
 		"glob":    wiki.glob,
 		"matchre": matchre,
 		"reverse": reverse,
+		// TODO(akavel): allow specifying options, for safety
+		"markdown": markdown,
 	}
 	t, err := template.New("wiki").Funcs(funcs).ParseGlob(wiki.TemplateGlob)
 	if err != nil {
@@ -458,6 +458,10 @@ func (wiki *wikiHandler) glob(glob string) []*node {
 		nodes = append(nodes, node)
 	}
 	return nodes
+}
+
+func markdown(md string) template.HTML {
+	return template.HTML(blackfriday.MarkdownCommon([]byte(md)))
 }
 
 func matchre(pattern, s string) (string, error) {

@@ -1,13 +1,13 @@
 {{ define "view" }}
 {{- template "header" . -}}
 {{- if .IsHead -}}
-	{{- template "actions" . -}}
+  {{- template "actions" . -}}
 {{- else if .Revision -}}
-	{{- template "revision" . -}}
+  {{- template "revision" . -}}
 {{- end -}}
 {{- template "node" . -}}
 {{- if query.show_revisions -}}
-	{{- template "revisions" . -}}
+  {{- template "revisions" . -}}
 {{- end -}}
 {{- if eq .Path "/" }}
 <div class="row col-md-9">
@@ -23,18 +23,7 @@
    </div>
   </form>
  </div>
-
- <ul>
-{{ range $f := glob "/20??-??-??*.md" | reverse }}
- {{ if $f.Path | matchre "[0-9]quick\\." }}
-  <li>{{ $f.Markdown }}</li>
- {{ else }}
- </ul>
- <div class="well">{{ $f.Markdown }}</div>
- <ul>
- {{ end }}
-{{ end }}
- </ul>
+{{- template "blog" . -}}
 </div>
 {{- end -}}
 {{- template "footer" . -}}
