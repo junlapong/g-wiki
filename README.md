@@ -1,9 +1,13 @@
-# go-wiki
+# g-wiki-b
 
-A _KISS_ wiki built on golang with git as the storage back-end. Content
+A simple wiki built on golang with git as the storage back-end. Content
 is formatted in [markdown
 syntax](http://daringfireball.net/projects/markdown/syntax). The wiki is
 rendered with go templates and [bootstrap](http://getbootstrap.com) css.
+
+The *g-wiki-b* is originally forked off from the wonderfully simple [original *g-wiki*](https://github.com/aspic/g-wiki),
+then heavily modified and customized for my personal use and needs,
+still _KISS_-ing on the way.
 
 ## Build and run locally
 
