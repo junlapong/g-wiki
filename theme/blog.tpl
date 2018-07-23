@@ -19,13 +19,17 @@
  {{ range $a := glob "/20??-??-??*.md" | reverse }}
   {{- $oneline := $a.Content | matchre `^\s*([^\n]+)\s*$` -}}
   {{ if $oneline }}
+   {{ if $prev | eq "multiline" }}
+  <p style="text-align:center">─── &emsp;&emsp;❖&emsp;&emsp; ───</p>
+  <ul>
+   {{ end }}
    <li>{{ printf "%s&emsp;[¶](%s)" $oneline $a.Path | markdown }}</li>
    {{ $prev = "oneline" }}
   {{ else }}
+   {{ if $prev | eq "multiline" | not }}
  </ul>
- {{/* TODO(akavel): show permalink appropriate for multiline content */}}
-   {{ if "multiline" | eq $prev | not }}
-  <p style="text-align:center">─── &emsp;&emsp;❖&emsp;&emsp; ───</p>
+   {{ end }}
+  <p style="text-align:center">─── &emsp; <a style="font-weight: bold" href="{{ $a.Path }}">&emsp;§&emsp;</a> &emsp; ───</p>
   <!-- p style="text-align:center">☙&emsp;❖&emsp;❧</p -->
   <!-- p style="text-align:center">☙&emsp;⧫&emsp;❧</p -->
   <!-- p style="text-align:center">☙&emsp;✽&emsp;❧</p -->
@@ -35,11 +39,8 @@
   <!-- p style="text-align:center">🙪&emsp;🙪&emsp;🙪</p -->
   <!-- p style="text-align:center">☙&emsp;🏶&emsp;❧</p -->
   <!-- p style="text-align:center">⬥&emsp;❖&emsp;⬥</p -->
-   {{ end }}
 {{ $a.Content | markdown }}
-  <p style="text-align:center">─── &emsp;&emsp;❖&emsp;&emsp; ───</p>
    {{ $prev = "multiline" }}
- <ul>
   {{ end }}
  {{ end }}
  </ul>
