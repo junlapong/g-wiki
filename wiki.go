@@ -31,6 +31,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/russross/blackfriday.v1"
@@ -468,6 +469,7 @@ func (wiki *wikiHandler) glob(glob string) []*node {
 	// 100755 blob bb3b016d78458c9b8ef1549597e77f44529905fc	wiki.go
 	re := regexp.MustCompile(`(\S+) (\S+) (\S+)\t(.*)`)
 	var nodes []*node
+	var wg sync.WaitGroup
 	for _, line := range strings.Split(lines, "\n") {
 		m := re.FindStringSubmatch(line)
 		if m == nil {
@@ -494,9 +496,14 @@ func (wiki *wikiHandler) glob(glob string) []*node {
 			Dirs: listDirectories("/" + file),
 			repo: wiki.Repo,
 		}
-		node.gitShow()
 		nodes = append(nodes, node)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			node.gitShow()
+		}()
 	}
+	wg.Wait()
 	return nodes
 }
 
