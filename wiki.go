@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/russross/blackfriday"
+	"gopkg.in/russross/blackfriday.v1"
 )
 
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
