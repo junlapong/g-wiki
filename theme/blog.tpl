@@ -29,7 +29,7 @@
    {{ if $prev | eq "multiline" | not }}
  </ul>
    {{ end }}
-  <p style="text-align:center">─── &emsp; <a style="font-weight: bold" href="{{ $a.Path }}">&emsp;§&emsp;</a> &emsp; ───</p>
+  <p style="text-align:center">───── &emsp; <a style="font-weight: bold; font-size: larger" href="{{ $a.Path }}">&emsp;§&emsp;</a> &emsp; ─────</p>
   <!-- p style="text-align:center">☙&emsp;❖&emsp;❧</p -->
   <!-- p style="text-align:center">☙&emsp;⧫&emsp;❧</p -->
   <!-- p style="text-align:center">☙&emsp;✽&emsp;❧</p -->
