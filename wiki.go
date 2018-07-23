@@ -37,8 +37,8 @@ import (
 )
 
 // TODO(akavel): fix FIXMEs (sanitization of paths, etc.)
+// TODO(akavel): allow moving (renaming) nodes in the repo
 // TODO(akavel): allow deleting files from repo
-// TODO(akavel): allow adding file attachments into the wiki (images, etc. - probably restrict extensions via flag)
 // TODO(akavel): [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?.........
 // TODO(akavel): [MAYBE] use pure Go git implementation, maybe go-git; but this may increase complexity too much
 
@@ -205,6 +205,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO(akavel): maybe save to subdir named after node's filename
 	// TODO(akavel): or, create a random filename (or suffix) when saving
+	// TODO(akavel): [LATER-safety] add flag for restricting allowed file extensions
 	attachment, err := handleUpload(r, "attachment", filepath.Join(string(wiki.Repo), path.Dir(node.File)))
 	if err != nil {
 		log.Println(err)
