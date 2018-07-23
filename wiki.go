@@ -208,7 +208,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	attachment, err := handleUpload(r, "attachment", filepath.Join(string(wiki.Repo), path.Dir(node.File)))
 	if err != nil {
 		log.Println(err)
-	} else {
+	} else if attachment != "" {
 		node.repo.git("add", "--", filepath.Join(path.Dir(node.File), attachment))
 		node.repo.git("commit", "-m", "Uploaded: "+attachment)
 		content += fmt.Sprintf("\n[%[1]s](%[1]s)", attachment)
