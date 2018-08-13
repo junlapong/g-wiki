@@ -152,10 +152,10 @@ type wikiHandler struct {
 func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	urlPath := path.Clean(filepath.ToSlash(r.URL.Path))
 	if urlPath == "" || urlPath == "/" {
+		// If URL path is empty, but ?path=... is set, redirect to page with such path
 		p := r.FormValue("path")
 		if p != "" && p != "/" && p != "." {
-			r.URL.Path = "/" + strings.TrimSuffix(cleanPath(p), ".md")
-			http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
+			RedirectWithData(w, r, strings.TrimSuffix(cleanPath(p), ".md"))
 			return
 		}
 	}
@@ -166,10 +166,10 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// "Clean URLs" - strip .md suffix from URL path
 	// TODO(akavel): make below work also on case-insensitive filesystems
 	if strings.HasSuffix(urlPath, ".md") {
-		r.URL.Path = strings.TrimSuffix(urlPath, ".md")
-		http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
+		RedirectWithData(w, r, strings.TrimSuffix(urlPath, ".md"))
 		return
 	}
 	// If a requested non-.md file exists on disk, return it, under assumption that it is a static resource
@@ -191,6 +191,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		author    = r.FormValue("author")
 		reset     = r.FormValue("revert")
 		revision  = r.FormValue("revision")
+		rename    = r.FormValue("rename")
 	)
 	query := map[string]string{
 		"edit":           r.FormValue("edit"),
@@ -217,6 +218,15 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
+	case rename != "" && rename != urlPath && rename != node.File:
+		if !strings.HasSuffix(rename, ".md") {
+			rename += ".md"
+		}
+		// TODO(akavel): print some message to user in case of failure
+		node.repo.git("mv", node.File, rename)
+		node.gitCommit("Rename "+node.File+" to "+rename, author)
+		RedirectWithData(w, r, rename)
+		return
 	case content != "":
 		if changelog == "" {
 			changelog = "Update " + node.File
@@ -305,6 +315,13 @@ func handleUpload(r *http.Request, field, dir string) (string, error) {
 		return "", fmt.Errorf("closing %s: %v", field, err)
 	}
 	return info.Filename, nil
+}
+
+// RedirectWithData writes a 307 redirect, which orders the browser to re-send POST data.
+// The function also keeps the URL query parameters.
+func RedirectWithData(w http.ResponseWriter, r *http.Request, newPath string) {
+	r.URL.Path = "/" + newPath
+	http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
 }
 
 type node struct {

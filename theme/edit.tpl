@@ -2,6 +2,13 @@
 {{ template "header" . }}
 <div class="row col-md-9">
 <form method="POST" enctype="multipart/form-data">
+ <div class="form-group">
+  <div class="input-group">
+   <span class="input-group-addon">/</span>
+   <!-- glyphicon-link -->
+   <input type="text" class="form-control input-sm" name="rename" value="{{ .File }}" />
+  </div>
+ </div>
  <div class="form-group col-md-12">
   <textarea type="text" class="form-control" rows="15" placeholder="Insert markdown here" name="content">{{ .Content }}</textarea>
  </div>
