@@ -320,7 +320,7 @@ func handleUpload(r *http.Request, field, dir string) (string, error) {
 // RedirectWithData writes a 307 redirect, which orders the browser to re-send POST data.
 // The function also keeps the URL query parameters.
 func RedirectWithData(w http.ResponseWriter, r *http.Request, newPath string) {
-	r.URL.Path = "/" + newPath
+	r.URL.Path = "/" + strings.TrimLeft(newPath, "/")
 	http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
 }
 
