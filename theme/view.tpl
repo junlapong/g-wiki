@@ -1,8 +1,8 @@
 {{ define "view" }}
 {{- template "header" . -}}
-{{- if .IsHead -}}
+{{- if .IsHead | or (not .Revision) -}}
   {{- template "actions" . -}}
-{{- else if .Revision -}}
+{{- else -}}
   {{- template "revision" . -}}
 {{- end -}}
 {{- template "node" . -}}
@@ -11,6 +11,12 @@
 {{- end -}}
 {{- if eq .Path "/" }}
   {{- template "blog" . -}}
+{{- else if .Path | matchre `^/tag/` -}}
+<div class="row col-md-9">
+  {{- $tag := .Path | matchre `^/tag/(.*)` -}}
+  {{- $glob := printf "/20??-??-??*.@%s.*" $tag -}}
+  {{- template "blog-list" $glob -}}
+</div>
 {{- end -}}
 {{- template "footer" . -}}
 {{ end }}
