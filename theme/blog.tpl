@@ -24,7 +24,7 @@
  <ul>
    {{- end -}}
    {{- $html := $oneline | markdown | matchre `^\s*<p>(.*)</p>\s*$` }}
-  <li><p>{{ $html }}&emsp;<a href="{{ $a.Path }}">¶</a></p></li>
+  <li><p>{{ $html }}&emsp;<a href="{{ $a.Path }}">¶</a> {{ template "tag" $a.Path }}</p></li>
    {{- $prev = "oneline" -}}
   {{- else -}}
    {{- if $prev | eq "multiline" | not }}
