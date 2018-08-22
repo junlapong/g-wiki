@@ -31,6 +31,7 @@
  </ul>
    {{- end }}
  <p style="text-align:center">───── &emsp; <a style="font-weight: bold; font-size: larger" href="{{ $a.Path }}">&emsp;§&emsp;</a> &emsp; ─────</p>
+ <div style="float:right">{{ template "tag" $a.Path }}</div>
 {{ $a.Content | markdown -}}
    {{- $prev = "multiline" -}}
   {{- end -}}
