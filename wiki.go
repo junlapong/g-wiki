@@ -528,19 +528,36 @@ func markdown(md string) template.HTML {
 	return template.HTML(blackfriday.MarkdownCommon([]byte(md)))
 }
 
-func matchre(pattern, s string) (string, error) {
+func matchre(pattern string, s interface{}) (interface{}, error) {
+	var text string
+	html := false
+	switch s := s.(type) {
+	case string:
+		text = s
+	case template.HTML:
+		text = string(s)
+		html = true
+	default:
+		return nil, fmt.Errorf("matchre: unexpected type of argument: %T", s)
+	}
+
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return "", err
 	}
-	m := re.FindStringSubmatch(s)
+	m := re.FindStringSubmatch(text)
 	switch len(m) {
 	case 0:
-		return "", nil
+		text= ""
 	case 1:
-		return m[0], nil
+		text= m[0]
 	default:
-		return m[1], nil
+		text=m[1]
+	}
+	if html {
+		return template.HTML(text), nil
+	} else {
+		return text, nil
 	}
 }
 
