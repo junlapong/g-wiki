@@ -23,7 +23,8 @@
   <p style="text-align:center">─── &emsp;&emsp;❖&emsp;&emsp; ───</p>
   <ul>
    {{ end }}
-   <li>{{ printf "%s&emsp;[¶](%s)" $oneline $a.Path | markdown }}</li>
+   {{- $html := $oneline | markdown | matchre `^\s*<p>(.*)</p>\s*$` }}
+  <li><p>{{ $html }}&emsp;<a href="{{ $a.Path }}">¶</a></p></li>
    {{ $prev = "oneline" }}
   {{ else }}
    {{ if $prev | eq "multiline" | not }}
