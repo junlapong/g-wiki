@@ -2,6 +2,6 @@
 {{- $tag := . | matchre `\.@([^.]*)` -}}
 {{- if $tag -}}
  {{- $rest := . | matchre `\.@[^.]*(\..*)$` -}}
- &nbsp; <span class="label label-default">{{ $tag }}</span> {{ template "tag" $rest }}
+ &nbsp; <a href="/tag/{{ $tag }}"><span class="label label-default">{{ $tag }}</span></a> {{ template "tag" $rest }}
 {{- end -}}
 {{- end -}}
