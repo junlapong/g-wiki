@@ -1,7 +1,7 @@
 {{- define "blog-list" -}}
  <ul>
- {{- $prefixshow := .Path | matchre `^/20\d\d[-\d]*` -}}
- {{- $prefixlen := len $prefix -}}
+ {{- $prefixshow := path | matchre `^/20\d\d[-\d]*` -}}
+ {{- $prefixlen := len $prefixshow -}}
  {{- $prefixre := printf `^.{%d}` $prefixlen -}}
  {{- $prefixprev := "" -}}
  {{- $prev := "" -}}
