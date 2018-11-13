@@ -548,11 +548,11 @@ func matchre(pattern string, s interface{}) (interface{}, error) {
 	m := re.FindStringSubmatch(text)
 	switch len(m) {
 	case 0:
-		text= ""
+		text = ""
 	case 1:
-		text= m[0]
+		text = m[0]
 	default:
-		text=m[1]
+		text = m[1]
 	}
 	if html {
 		return template.HTML(text), nil
