@@ -94,7 +94,8 @@ Additionally, the following functions are available in the template:
 	matchre PATTERN STRING
 	        - returns the first capture from the regular expression if matched,
 	          or the whole match if no captures were specified
-	now - returns the current time (see https://golang.org/pkg/time/#Now)
+	now     - returns the current time (see https://golang.org/pkg/time/#Now)
+	path    - returns the path part of the URL
 `)
 }
 
@@ -460,6 +461,7 @@ func (wiki *wikiHandler) renderTemplate(w http.ResponseWriter, node *node, query
 		// TODO(akavel): allow specifying options, for safety
 		"markdown": markdown,
 		"now":      time.Now,
+		"path":     func() string { return node.Path },
 	}
 	t, err := template.New("wiki").Funcs(funcs).ParseGlob(wiki.TemplateGlob)
 	if err != nil {
