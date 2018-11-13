@@ -10,7 +10,7 @@
 
   {{- $prefix := $a.Path | matchre $prefixre -}}
   {{- if eq $prefix $prefixshow -}}
-   {{- if ne $prefixprev $prefix -}}
+   {{- if gt $prefixprev $prefix -}}
  </ul>
  <p><a href="{{ $prefixprev }}">&lt;&lt; newer...</a></p>
  <ul>
