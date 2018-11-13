@@ -1,6 +1,6 @@
 {{- define "blog-list" -}}
  <ul>
- {{- $prefixshow := path | matchre `^/20\d\d[-\d]*` -}}
+ {{- $prefixshow := or (path | matchre `^/20\d\d[-\d]*`) (now.Format "/2006-01") -}}
  {{- $prefixlen := len $prefixshow -}}
  {{- $prefixre := printf `^.{%d}` $prefixlen -}}
  {{- $prefixprev := "" -}}
@@ -36,7 +36,7 @@
    {{- end -}}
 
   {{- else if lt $prefix $prefixshow -}}
-   {{- if eq $prefixprev $prefixshow -}}
+   {{- if eq $prefixprev $prefixshow | or (not $prefixprev) -}}
     {{- if $prev | eq "multiline" | not }}
  </ul>
     {{- end }}
