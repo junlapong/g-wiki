@@ -11,6 +11,10 @@
 {{- end -}}
 {{- if eq .Path "/" }}
   {{- template "blog" . -}}
+{{- else if .Path | matchre `^/20\d\d-\d\d/?$` -}}
+  {{- template "blog" . -}}
+{{- else if .Path | matchre `^/20\d\d-\d\d-\d\d/?$` -}}
+  {{- template "blog" . -}}
 {{- else if .Path | matchre `^/tag/` -}}
 <div class="row col-md-9">
   {{- $tag := .Path | matchre `^/tag/(.*)` -}}
