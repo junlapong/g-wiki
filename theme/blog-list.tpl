@@ -43,7 +43,7 @@
  <p><a href="{{ $prefix }}">older... &gt;&gt;</a></p>
    {{- end -}}
   {{- end -}}
-  {{- $prev = $prefix -}}
+  {{- $prefixprev = $prefix -}}
  {{- end }}
  </ul>
 {{- end -}}
