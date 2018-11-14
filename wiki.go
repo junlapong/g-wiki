@@ -151,14 +151,10 @@ type wikiHandler struct {
 }
 
 func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	urlPath := path.Clean(filepath.ToSlash(r.URL.Path))
-	if urlPath == "" || urlPath == "/" {
-		// If URL path is empty, but ?path=... is set, redirect to page with such path
-		p := r.FormValue("path")
-		if p != "" && p != "/" && p != "." {
-			RedirectWithData(w, r, strings.TrimSuffix(cleanPath(p), ".md"))
-			return
-		}
+	urlPath := cleanPath(r.URL.Path)
+	if p := cleanPath(r.FormValue("path")); p != "" && p != urlPath {
+		RedirectWithData(w, r, strings.TrimSuffix(p, ".md"))
+		return
 	}
 	// Don't show any files or directories with names starting with "." (especially ".git")
 	for _, segment := range strings.Split(urlPath, "/") {
@@ -174,15 +170,15 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// If a requested non-.md file exists on disk, return it, under assumption that it is a static resource
-	if serveFile(w, r, filepath.Join(string(wiki.Repo), strings.TrimLeft(urlPath, "/"))) {
+	if serveFile(w, r, filepath.Join(string(wiki.Repo), urlPath)) {
 		return
 	}
 	switch urlPath {
-	case "/favicon.ico":
+	case "favicon.ico":
 		http.NotFound(w, r)
 		return
-	case "/index.html":
-		urlPath = "/"
+	case "index.html":
+		urlPath = ""
 	}
 
 	// Params
@@ -192,7 +188,7 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		author    = r.FormValue("author")
 		reset     = r.FormValue("revert")
 		revision  = r.FormValue("revision")
-		rename    = r.FormValue("rename")
+		rename    = cleanPath(r.FormValue("rename"))
 	)
 	query := map[string]string{
 		"edit":           r.FormValue("edit"),
@@ -200,8 +196,8 @@ func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	node := &node{
-		Path: urlPath,
-		File: strings.TrimLeft(urlPath, "/") + ".md",
+		Path: "/" + urlPath,
+		File: urlPath + ".md",
 		Dirs: listDirectories(urlPath),
 		repo: wiki.Repo,
 	}
@@ -576,5 +572,5 @@ func reverse(nodes []*node) []*node {
 // TODO(akavel): use this in all places where Clean/TrimLeft/ToSlash is used
 // TODO(akavel): somehow check if this is enough sanitization or not yet (vs. filepath.Clean?)
 func cleanPath(p string) string {
-	return strings.TrimLeft(path.Clean(filepath.ToSlash(p)), "/")
+	return strings.TrimLeft(path.Clean(filepath.ToSlash("/"+p)), "/")
 }

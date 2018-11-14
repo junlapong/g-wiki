@@ -13,12 +13,10 @@
       <li><a href="/">Home</a></li>
     {{$n := len .Dirs}}
     {{range $i, $dir := .Dirs }}
-     {{ if gt $i 0 }}
-      {{ if $i | inc | eq $n }}
-       <li class="active">{{$dir.Name}}</li>
-      {{ else }}
-       <li><a href="{{ $dir.Path }}">{{$dir.Name}}</a></li>
-      {{ end }}
+     {{ if $i | inc | eq $n }}
+      <li class="active">{{$dir.Name}}</li>
+     {{ else }}
+      <li><a href="{{ $dir.Path }}">{{$dir.Name}}</a></li>
      {{ end }}
     {{ end }}
    </ol>
