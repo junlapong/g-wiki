@@ -11,11 +11,8 @@ RUN git init files
 RUN git config --global user.email "system@dockercontainer"
 RUN git config --global user.name "system"
 
-ENV GOPATH /app
-ENV GOBIN $GOPATH/bin
-RUN go get .
-RUN go build -o main .
+RUN go install .
 
-CMD ./main
+CMD /go/bin/g-wiki
 
 EXPOSE 8000
