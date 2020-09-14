@@ -1,7 +1,5 @@
-bin
-pkg
-# Build dependencies
-src/github.com
+files/
+
 # Binary
-/wiki
 g-wiki
+wiki
