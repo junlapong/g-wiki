@@ -250,7 +250,7 @@ type wikiHandler struct {
 
 func (wiki *wikiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	log.Printf("%s\t%s\n", r.Method, r.RequestURI)
+	log.Printf("%-8s  %s\n", r.Method, r.RequestURI)
 
 	urlPath := cleanPath(r.URL.Path)
 	if p := cleanPath(r.FormValue("path")); p != "" && p != urlPath {

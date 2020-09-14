@@ -26,7 +26,7 @@ git init files
 You can now run g-wiki with the standard settings by executing the binary
 
 ```
-./wiki -http=":8000" -wiki=./files -theme="$GOPATH/src/github.com/junlapong/g-wiki/theme"
+./g-wiki
 ```
 
 Point your web browser to [http://localhost:8000](http://localhost:8000) to see the wiki in action.
@@ -50,33 +50,15 @@ docker run -d -p 8000:8000 go-wiki:latest
 
 This starts the web application in deamon mode, and the application should be accessible on [http://localhost:8000](http://localhost:8000)
 
-## Develop
-
-Templates are embedded with [go.rice](https://github.com/GeertJohan/go.rice).
-If you change a file under templates, either 
-
-```
-rm templates.rice-box.go
-```
-
-to force g-wiki to load templates from under `templates` directory; or
-
-```
-go get github.com/GeertJohan/go.rice/rice
-rice embed-go
-```
-
-to regenerate templates.rice-box.go, and be able to just `go build`,
-to have a portable binary.
 
 ## TODO
 
-- [ ] Embedded template to build bainary [see](https://github.com/nohal/g-wiki#develop)
+- [ ] Embedded template to build bainary, maybe [go.rice](https://github.com/GeertJohan/go.rice). [see](https://github.com/nohal/g-wiki#develop)
 - [ ] fix FIXMEs (sanitization of paths, etc.)
 - [ ] allow moving (renaming) nodes in the repo
 - [ ] allow deleting files from repo
+- [ ] use pure Go git implementation, maybe [go-git](https://github.com/go-git/go-git)
 - [ ] [LATER] nice JS editor, with preview of markdown... but how to ensure compat. with blackfriday? or, VFMD everywhere?..
-- [ ] [MAYBE] use pure Go git implementation, maybe go-git; but this may increase complexity too much
 
 ## References 
 
