@@ -15,20 +15,20 @@ func main() {
 
 	addr := flag.String("http", ":8000", "local HTTP `address` to serve the wiki on")
 	repo := flag.String("wiki", "./files", "`directory` with git repository containing wiki files")
-	theme := "./theme/*.tpl"
+	templates := "./templates/*.tpl"
 
 	flag.Usage = usage
 	flag.Parse()
 
-	// Static resources from the theme
+	// Static resources from the templates
 	// TODO(akavel): test if this works for static files + for filtering out template files...
-	http.Handle("/theme/", http.StripPrefix("/theme/", HTTPRejectGlob(filepath.Base(theme),
-		http.FileServer(http.Dir(filepath.Dir(theme))))))
+	http.Handle("/templates/", http.StripPrefix("/templates/", HTTPRejectGlob(filepath.Base(templates),
+		http.FileServer(http.Dir(filepath.Dir(templates))))))
 
 	// Main wiki handler
 	http.Handle("/", &wikiHandler{
 		Repo:         repository(*repo),
-		TemplateGlob: theme,
+		TemplateGlob: templates,
 	})
 
 	log.Printf("Starting a server on %s...", *addr)
