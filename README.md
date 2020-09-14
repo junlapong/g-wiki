@@ -1,5 +1,7 @@
 # g-wiki
 
+![test](https://github.com/junlapong/g-wiki/workflows/test/badge.svg)
+
 A simple wiki built on golang with git as the storage back-end. Content
 is formatted in [markdown syntax](http://daringfireball.net/projects/markdown/syntax).
 
@@ -14,7 +16,7 @@ still _KISS_-ing on the way.
 Ensure that go is installed. Download dependencies and compile the binary by:
 
 ```
-go get -o wiki github.com/junlapong/g-wiki
+go get -u github.com/junlapong/g-wiki
 ```
 
 Create a git repository in some folder, for example `files`
